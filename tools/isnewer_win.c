@@ -6,7 +6,7 @@
 #include "fileapi.h"
 #include "errhandlingapi.h"
 #include <tchar.h>
-#include <shlwapi.h>
+#include <shlwapi.h> // TODO: use Raylib GetFileModTime instead of windows-specific stuff
 
 /**
  * print usage message to stdout
@@ -41,7 +41,7 @@ void print_last_error() {
 
 /**
  * Check time of the most recent change to a file.
- * Returns non-zero on success. If it failes, you can use GetLastError() to learn more.
+ * Returns non-zero on success. If it fails, you can use GetLastError() to learn more.
  */
 BOOL get_m_time(const char* path, LPFILETIME lpTime) {
     if (lpTime == NULL) {
@@ -67,8 +67,11 @@ int main(int argc, char ** argv) {
     }
     char *path1 = argv[1];
     char *path2 = argv[2];
-    if (!PathFileExistsA(path1) || PathIsDirectoryA(path1) || !PathFileExistsA(path2) || PathIsDirectoryA(path2)) {
-        return 0;
+    if (!PathFileExistsA(path1) || PathIsDirectoryA(path1)) {
+        return 1;
+    }
+    if (!PathFileExistsA(path2) || PathIsDirectoryA(path2)) {
+        return 1;
     }
     FILETIME time1;
     if (!get_m_time(path1, &time1)) {

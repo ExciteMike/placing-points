@@ -31,11 +31,11 @@ bool read_exact(const char** read_head, const char* exact) {
 void read_to_end_of_line(const char** read_head, char *dst, size_t count) {
     while (**read_head != '\0') {
         if (**read_head != '\n') {
-            ++(*read_head);
-            break;
-        } else {
             (*dst++) = **read_head;
             ++(*read_head);
+        } else {
+            ++(*read_head);
+            break;
         }
     }
 }

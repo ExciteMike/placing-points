@@ -87,6 +87,7 @@ bool read_args(int argc, char **argv) {
             _out_path = argv[i+1];
             i += 2;
         } else {
+            printf("ERROR: unrecognized option \"%s\"\n", arg);
             return false;
         }
     }

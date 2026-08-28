@@ -174,7 +174,7 @@ int main(int argc, char **argv) {
     }
     
     begin_svg(f, _width, _height);
-    write_points(f, data, num_points, _point_radius, _point_color);
+    write_points(f, (float*)data, num_points*2, _point_radius, _point_color);
     end_svg(f);
     fclose(f);
     free(data);

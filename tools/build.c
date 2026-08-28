@@ -32,12 +32,24 @@ int main(int argc, char ** argv) {
     for (int i=0; i<list.count; ++i) {
         const char* path = list.paths[i];
         if (IsFileExtension(path, ".c") && IsPathFile(path)) {
+            char basename[256] = {'\0'};
+            get_base_name(path, basename, sizeof(basename));
             char outfile[256] = {'\0'};
-            get_base_name(path, outfile, sizeof(outfile));
-            int num_written = snprintf(buf, 512, "%s %s -o ./bin/%s.exe %s", CONFIG.gcc_path, path, outfile, CONFIG.gcc_opts);
+            int num_written = snprintf(outfile, sizeof(outfile), "./bin/%s.exe", basename);
+            if (num_written==256) {
+                outfile[255] = '\0';
+            }
+            long src_m_time = GetFileModTime(path);
+            long output_m_time = GetFileModTime(outfile);
+            if (src_m_time <= output_m_time) {
+                continue;
+            }
+            
+            num_written = snprintf(buf, 512, "%s %s -o %s %s", CONFIG.gcc_path, path, outfile, CONFIG.gcc_opts);
             if (num_written == 512) {
                 buf[511] = '\0';
             }
+            printf("building %s\n%s", outfile, buf);
             int exit_code = run(buf);
             if (exit_code) {
                 printf("build error for \"%s\"", path);
@@ -45,6 +57,7 @@ int main(int argc, char ** argv) {
             }
         }
     }
+    UnloadDirectoryFiles(list);
     return errors;
 }
 
@@ -53,11 +66,11 @@ void get_base_name(const char *path, char *buf, size_t bufsize) {
     const char *start = path;
     char *last_fwd_slash = strrchr(start, '/');
     if (NULL != last_fwd_slash) {
-        start = last_fwd_slash;
+        start = last_fwd_slash+1;
     }
     const char *last_back_slash = strrchr(start, '\\');
     if (NULL != last_back_slash) {
-        start = last_back_slash;
+        start = last_back_slash+1;
     }
     const char *end = start + strlen(start);
     const char *last_dot = strrchr(start, '.');

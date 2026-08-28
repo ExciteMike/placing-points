@@ -9,8 +9,8 @@
 #include "write_svg.h"
 
 
-static float _width    = 100.f; // width of the generated SVG. may be overridden with a command-line arg
-static float _height   = 100.f; // height of the generated SVG. may be overridden with a command-line arg
+static float _width    = 320.f; // width of the generated SVG. may be overridden with a command-line arg
+static float _height   = 180.f; // height of the generated SVG. may be overridden with a command-line arg
 static float _point_radius = 1.f; // radius of the circle we draw to indicate the points
 static int _max_points = 625;   // maximum allowed number of points
 static const char* _point_color = "black"; // color of the points
@@ -126,7 +126,7 @@ int main(int argc, char **argv) {
     begin_svg(f, _width, _height);
     for (int i=0;i<_max_points;++i) {
         Vector2 p = {.x=rand_x(), .y=rand_y()};
-        write_point(f, p, _point_radius, _point_color);
+        write_point(f, p.x, p.y, _point_radius, _point_color);
     }
     end_svg(f);
     fclose(f);

@@ -1,19 +1,20 @@
-// Helper functions for writing out scalable vector graphics.
-// 
-// Single-file library in the style of "stb" libraries.
-// To create the implementation,
-//     #define WRITE_SVG_IMPLEMENTATION
-// in *one* C/CPP file that includes this file.
+/* write_svg.h - Mike Meyer 2026
 
-#include "raylib.h"
+   Helper functions for writing out scalable vector graphics.
+
+   To use this library, do this in *one* C or C++ file:
+      #define WRITE_SVG_IMPLEMENTATION
+      #include "write_svg.h"
+*/
+
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 extern void begin_svg(FILE *file, float width, float height); // write out the beginning of an svg file. use end_svg to finish.
 extern void end_svg(FILE *file); // write out the last bit of an svg file.
-extern void write_point(FILE *file, Vector2 point, float radius, const char *fill_color); // draw circle for a point
-extern void write_points(FILE *file, Vector2 *points, size_t count, float radius, const char *fill_color); // draw circles for each point
+extern void write_point(FILE *file, float x, float y, float radius, const char *fill_color); // draw circle for a point
+extern void write_points(FILE *file, float *coordinate_data, size_t count, float radius, const char *fill_color); // draw circles for each point. TWO floats per point (x and y coords), so count must be even
 #ifdef __cplusplus
 }
 #endif
@@ -31,14 +32,20 @@ void end_svg(FILE *file) {
 }
 
 // draw circle for a point
-void write_point(FILE *file, Vector2 point, float radius, const char *fill_color) {
-    fprintf(file, "<circle cx=\"%.2f\" cy=\"%.2f\" r=\"%.2f\" fill=\"%s\"/>", point.x, point.y, radius, fill_color);
+void write_point(FILE *file, float x, float y, float radius, const char *fill_color) {
+    fprintf(file, "<circle cx=\"%.2f\" cy=\"%.2f\" r=\"%.2f\" fill=\"%s\"/>", x, y, radius, fill_color);
 }
 
-// draw circles for each point
-void write_points(FILE *file, Vector2 *points, size_t count, float radius, const char *fill_color) {
-    for (int i=0; i<count; ++i) {
-        write_point(file, points[i], radius, fill_color);
+// draw circles for each point. TWO floats per point (x and y coords), so count must be even!
+void write_points(
+    FILE *file,
+    float *coordinate_data,
+    size_t count,
+    float radius,
+    const char *fill_color
+) {
+    for (int i=0; i<count-1; i+=2) {
+        write_point(file, coordinate_data[i], coordinate_data[i+1], radius, fill_color);
     }
 }
 

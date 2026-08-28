@@ -8,6 +8,9 @@
 #define WRITE_SVG_IMPLEMENTATION
 #include "write_svg.h"
 
+#define COLIOP_IMPLEMENTATION
+#include "coliop.h"
+
 
 static float _width    = 320.f; // width of the generated SVG. may be overridden with a command-line arg
 static float _height   = 180.f; // height of the generated SVG. may be overridden with a command-line arg
@@ -16,83 +19,38 @@ static int _max_points = 625;   // maximum allowed number of points
 static const char* _point_color = "black"; // color of the points
 static char *_out_path = "white_noise.svg";
 
-
-// print usage message to stdout
-void print_usage(const char* name) {
-    printf("USAGE: %s [options]\n", name);
-    printf("Options:\n");
-    printf("  --help   \tshow this message\n");
-    printf("  -w WIDTH     \twidth of the generated SVG\n");
-    printf("  -h HEIGHT    \theight of the generated SVG\n");
-    printf("  -o PATH      \tpath to write the SVG file at\n");
-    printf("  -r RADIUS    \tradius of the dots used to indicate points\n");
-    printf("  -c COLOR     \tColor to draw the dots with. Can be a color name like \"pink\" or a hex value like \"#e68b93\".\n");
-    printf("  -n NUM_POINTS\tThe number of points to generate\n");
-    printf("               \tThere may be fewer based on what the other settings allow\n");
-    printf("               \tand the stochastic nature of the algorithm\n");
-}
-
-// process command line args. return true if successful.
-bool read_args(int argc, char **argv) {
-    int i = 1;
-    while (i < argc) {
-        const char *arg = argv[i];
-        if (0 == strcmp(arg, "--help")) {
-            printf("Generate an SVG displaying sample points with a \"white noise\" distribution.\n");
-            return false;
-        } else if (0 == strcmp(arg, "-w")) {
-            if (argc <= i+1) {
-                printf("ERROR: expected a number after \"-w\"\n");
-                return false;
-            }
-            const char* next_arg = argv[i+1];
-            _width = strtof(next_arg, NULL);
-            i += 2;
-        } else if (0 == strcmp(arg, "-h")) {
-            if (argc <= i+1) {
-                printf("ERROR: expected a number after \"-h\"\n");
-                return false;
-            }
-            const char* next_arg = argv[i+1];
-            _height = strtof(next_arg, NULL);
-            i += 2;
-        } else if (0 == strcmp(arg, "-n")) {
-            if (argc <= i+1) {
-                printf("ERROR: expected a number after \"-n\"\n");
-                return false;
-            }
-            const char* next_arg = argv[i+1];
-            _max_points = atoi(next_arg);
-            i += 2;
-        } else if (0 == strcmp(arg, "-r")) {
-            if (argc <= i+1) {
-                printf("ERROR: expected a number after \"-r\"\n");
-                return false;
-            }
-            const char* next_arg = argv[i+1];
-            _point_radius = strtof(next_arg, NULL);
-            i += 2;
-        } else if (0 == strcmp(arg, "-c")) {
-            if (argc <= i+1) {
-                printf("ERROR: expected a color after \"-c\"\n");
-                return false;
-            }
-            _point_color = argv[i+1];
-            i += 2;
-        } else if (0 == strcmp(arg, "-o")) {
-            if (argc <= i+1) {
-                printf("ERROR: expected a file path after \"-o\"\n");
-                return false;
-            }
-            _out_path = argv[i+1];
-            i += 2;
-        } else {
-            printf("ERROR: unrecognized option \"%s\"\n", arg);
-            return false;
-        }
-    }
-    return true;
-}
+ColiopOption options[] = {
+    (ColiopOption) { .destination = &_width,
+                     .descrip = "Width of the generated SVG.",
+                     .name = "width",
+                     .type = COLIOP_OPTTYPE_FLOAT,
+                     .letter = 'W' },
+    (ColiopOption) { .destination = &_height,
+                     .descrip = "Height of the generated SVG.",
+                     .name = "height",
+                     .type = COLIOP_OPTTYPE_FLOAT,
+                     .letter = 'H' },
+    (ColiopOption) { .destination = &_out_path,
+                     .descrip = "Path to write the SVG file at.",
+                     .name = "out",
+                     .type = COLIOP_OPTTYPE_STRING,
+                     .letter = 'o' },
+    (ColiopOption) { .destination = &_point_radius,
+                     .descrip = "Radius of the dots used to indicate points.",
+                     .name = "radius",
+                     .type = COLIOP_OPTTYPE_FLOAT,
+                     .letter = 'r' },
+    (ColiopOption) { .destination = &_point_color,
+                     .descrip = "Color to draw the dots with. Can be a color name like \"pink\" or a hex value like \"#e68b93\".",
+                     .name = "color",
+                     .type = COLIOP_OPTTYPE_STRING,
+                     .letter = 'c' },
+    (ColiopOption) { .destination = &_max_points,
+                     .descrip = "The number of points to generate.",
+                     .name = "num-points",
+                     .type = COLIOP_OPTTYPE_INT,
+                     .letter = 'n' },
+};
 
 float rand01() {
     return ((float)rand())/((float)RAND_MAX);
@@ -109,9 +67,20 @@ float rand_y() {
 }
 
 // entry point
-int main(int argc, char **argv) {
-    if (!read_args(argc, argv)) {
-        print_usage(argv[0]);
+int main(int argc, const char **argv) {
+    ColiopConfig coliop = {
+        .descrip =
+            "Generate an SVG displaying sample points with a \"white noise\" distribution.",
+        .options = &(options[0]),
+        .num_options = sizeof(options) / sizeof(options[0]),
+        .max_positional_args = 0
+    };
+    ColiopResult *args_result = coliop_execute(&coliop, argc, argv, stdout);
+    if (NULL == args_result) {
+        return 1;
+    }
+    if (!args_result->success) {
+        coliop_free_results(args_result);
         return 1;
     }
 

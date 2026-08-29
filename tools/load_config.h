@@ -1,3 +1,4 @@
+#include <ctype.h>
 #define CONFIG_FIELD_SIZE (256)
 
 typedef struct Config {

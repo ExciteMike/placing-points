@@ -1,6 +1,7 @@
 -std=c17
 -IC:/raylib/w64devkit/include
 -Iinclude
+-Iexternal
 -Isrc
 -LC:/raylib/w64devkit/lib
 -Llib

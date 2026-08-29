@@ -1,5 +1,8 @@
-:: compile on my work ThinkPad
 @echo off
+echo.
+echo BUILD START
+echo.
+
 SETLOCAL
 SET PATH=C:\raylib\w64devkit\bin;%PATH%
 SET ISNEWER_SRC=.\tools\isnewer_win.c
@@ -36,10 +39,15 @@ echo running build tool
 %BUILD_EXE%
 IF %ERRORLEVEL% NEQ 0 GOTO error
 
+echo.
+echo BUILD SUCCEEDED
+echo.
 goto end
 
 :error
-echo FAILED
+echo.
+echo BUILD FAILED
+echo.
 
 :end
 ENDLOCAL

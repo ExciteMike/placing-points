@@ -2,7 +2,6 @@
  * Expects to be run in the main project directory.
  * 
  */
-#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 #include "raylib.h"
@@ -17,7 +16,7 @@ struct Config CONFIG = {0};
 
 void get_base_name(const char *path, char *buf, size_t bufsize); // get basename from a path
 
-// entry point
+/* entry point */
 int main(int argc, char ** argv) {
     const char* err_str = NULL;
     if (!load_config(CONFIG_PATH, &err_str, &CONFIG)) {
@@ -61,7 +60,7 @@ int main(int argc, char ** argv) {
     return errors;
 }
 
-// get basename from a path
+/* get basename from a path */
 void get_base_name(const char *path, char *buf, size_t bufsize) {
     const char *start = path;
     char *last_fwd_slash = strrchr(start, '/');

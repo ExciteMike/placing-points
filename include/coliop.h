@@ -10,6 +10,7 @@
 */
 
 #include <stdlib.h>
+#include <stdio.h>
 
 // how to interpret the option's value
 typedef enum ColiopOptType {
@@ -74,6 +75,7 @@ void coliop_print_help(
         return;
     }
     fprintf(output_stream, "Options:\n");
+    fprintf(output_stream, "  -h/--help       Show this message.");
     for (ColiopOption *option= config->options; option!=end_option; option++) {
         int column = fprintf(output_stream, "  -%c/--%s", option->letter, option->name);
         switch (option->type) {

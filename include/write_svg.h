@@ -36,7 +36,7 @@ void write_point(FILE *file, float x, float y, float radius, const char *fill_co
     fprintf(file, "<circle cx=\"%.2f\" cy=\"%.2f\" r=\"%.2f\" fill=\"%s\"/>", x, y, radius, fill_color);
 }
 
-// draw circles for each point. TWO floats per point (x and y coords), so count must be even!
+// draw circles for each point. TWO floats per point (x and y coords). `count` is the number of POINTS, 
 void write_points(
     FILE *file,
     float *coordinate_data,
@@ -44,8 +44,8 @@ void write_points(
     float radius,
     const char *fill_color
 ) {
-    for (int i=0; i<count-1; i+=2) {
-        write_point(file, coordinate_data[i], coordinate_data[i+1], radius, fill_color);
+    for (size_t i=0; i<count; i++) {
+        write_point(file, coordinate_data[2*i], coordinate_data[2*i+1], radius, fill_color);
     }
 }
 

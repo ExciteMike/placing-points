@@ -6,7 +6,7 @@ from random import random
 import math
 import numpy as np
 
-NUM_SAMPLES = 100000
+NUM_SAMPLES = 2000000
 HIGH_PASS_WINDOW = 3
 MARGIN = 0
 GAP = 8
@@ -24,18 +24,15 @@ NUM_BINS = int(PLOT_WIDTH / 4)
 def moving_average(a, n):
     return np.convolve(a, np.ones(n), 'valid') / n
 
-def moving_sum(a, n):
-    return np.convolve(a, np.ones(n), 'valid')
-
 def gen_white_noise():
     return np.random.rand(NUM_SAMPLES)
 
 def gen_brownian_noise():
     white = np.random.rand(NUM_SAMPLES) - 0.5
-    return moving_sum(white, 50)
+    return moving_average(white, 32)
 
 def gen_blue_noise():
-    white = np.random.rand(NUM_SAMPLES) - 0.5
+    white = np.random.randn(NUM_SAMPLES)
     smoothed = moving_average(white, HIGH_PASS_WINDOW)
     size_diff = white.size - smoothed.size
     if size_diff%2 != 0:
@@ -83,9 +80,12 @@ def make_noise_graphs(path, samples):
         f.write(f"\"/>")
 
         abs_freq = np.abs(frequencies)
-        bin_counts = np.histogram(abs_freq, NUM_BINS)[0]
-        bin_sums = np.histogram(abs_freq, NUM_BINS, weights=power_spectrum)[0]
-        bin_means = bin_sums / bin_counts
+        log_freq = np.power(math.e, abs_freq)
+        bin_counts = np.histogram(log_freq, NUM_BINS)[0]
+        bin_counts_safe = np.where(bin_counts==0, 1, bin_counts)
+        power_spectrum_log = normalize(np.log(power_spectrum + 1))
+        bin_sums = np.histogram(log_freq, NUM_BINS, weights=power_spectrum_log)[0]
+        bin_means = bin_sums / bin_counts_safe
         normalized = bin_means / bin_means.max()
         n = normalized.size
         prev_x = PLOT_LEFT
@@ -98,10 +98,10 @@ def make_noise_graphs(path, samples):
             prev_x = x
         f.write(f""" L {PLOT_RIGHT} {PLOT2_BOTTOM} z\" fill="blue" stroke="none"/></svg>""")
 
-make_noise_graphs("./dist/white_noise.svg", gen_white_noise())
+make_noise_graphs("../dist/white_noise.svg", gen_white_noise())
 
 # blue noise - ideally, has power spectrum density proportional to frequency
-make_noise_graphs("./dist/blue_noise.svg", gen_blue_noise())
+make_noise_graphs("../dist/blue_noise.svg", gen_blue_noise())
 
 # brownian noise aka red noise - power spectrum density proportional to one over the frequency squared
-make_noise_graphs("./dist/red_noise.svg", gen_brownian_noise())
+make_noise_graphs("../dist/red_noise.svg", gen_brownian_noise())

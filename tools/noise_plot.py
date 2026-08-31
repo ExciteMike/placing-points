@@ -2,7 +2,6 @@
 generates plots for the colors of noise section
 """
 
-from random import random
 import math
 import numpy as np
 

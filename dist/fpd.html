@@ -79,7 +79,7 @@
   <body>
     <main>
       <h1>Placing Points</h1>
-      <p>In videogames and computer graphics, we often want to distribute something throughout a region, like placing trees in a videogame forest or points to sample in a aytracer. In cases like these, the most straightforward approaches have some big drawbacks. If we simply choose points in a regular grid, it will look artificial and produce <a href="https://en.wikipedia.org/wiki/Aliasing">aliasing</a> effects and <a href="https://en.wikipedia.org/wiki/Moir%C3%A9_pattern">Moiré patterns</a>. If we avoid those artifacts by choosing positions of the points using random numbers, we will tend to have the problem of too much clustering of points and large gaps between clusters of points. We need a balance between the chaos of pure randomness and the unnatural order of regular spacing, keeping the points looking evenly spaced when viewed at large scales, but not predictable on smaller scales. Distributions meeting those criteria are sometimes called blue noise.</p>
+      <p>In videogames and computer graphics, we often want to distribute something throughout a region. It may be placing trees in a virtual forest, or your renderer simulating light rays into the world to determine pixel color. In cases like these, the most straightforward approaches have some big drawbacks! If we simply choose points in a regular grid, it will look artificial and will produce undesirable <a href="https://en.wikipedia.org/wiki/Aliasing">aliasing</a> effects and <a href="https://en.wikipedia.org/wiki/Moir%C3%A9_pattern">Moiré patterns</a> based on distance and viewing angle. We may then try a "dart-throwing" method and use our random number generator to pick coordinates. But this too causes problems. It will tend to produce some regions with dense clusters of points and leave large gaps between those clusters. We need a balance between the chaos of pure randomness and the unnatural order of regular spacing, keeping the points looking evenly spaced when viewed at large scales, but not predictable on smaller scales. Distributions meeting those criteria are sometimes called blue noise.</p>
       <threecolumns>
         <figure>
           <img src="intro_grid.svg"/>
@@ -95,7 +95,7 @@
         </figure>
       </threecolumns>
       <h2>Colors of Noise</h2>
-      <p>The term "blue noise" comes from signal processing used in the electronics and audio fields. It is sort of making an analogy with visible light to characterize noisy signals based on how much different frequencies are contributing to it. In audio, we experience this as the pitch and timbre of a sound, and in light we perceive it as color. White noise is probably the most familiar "color of noise". It is so named because, like white light, it is made up of a balance of many different frequencies. When the light we see contains more of the higher frequencies of light, we percieve it as blue light. So blue noise is noise that favors higher frequences. If we want to get technical, the colors of noise are defined in terms of <a href="https://en.wikipedia.org/wiki/Spectral_density#Power_spectral_density">power spectral density</a>, which will be familiar from music visualizers. When the bars on the left are high, the low frequencies have more energy and when the bars on the right are high, the high frequencies have more energy.</p>
+      <p>The term "blue noise" comes from signal processing and comes up in electronics and audio-related fields. They are making an analogy with visible light to characterize noisy signals based on how much different frequencies are contributing to it. In audio, we experience this as the pitch and timbre of a sound, and in light we perceive it as color. White noise is probably the most familiar "color of noise". It is so named because, like white light, it is made up of a balance of many different frequencies. When the light we see contains more of the lower frequencies of light, we perceive it as redder, and when the higher frequencies dominate, we see it as bluer. So blue noise is noise that favors higher frequences.</p>
       <threecolumns>
         <figure>
           <img src="colors_of_noise_white.svg"/>
@@ -108,9 +108,26 @@
         <figure>
           <img src="colors_of_noise_red.svg"/>
           <figcaption>Red noise AKA Brownian noise (top) and its power spectrum (bottom) which favors lower frequencies</figcaption>
-        </figure>  
+        </figure>
       </threecolumns>
-      <p>If it seems a little odd to think of frequencies and power spectra when you are trying to plant some virtual plants, you could think of it this way: low-frequency noise would mean that large areas of your forest look different from each other, and high frequency noise would mean that when you zoom in, a small area of the image looks different from another small area. Like white light, white noise is varied at all scales. Blue noise, like blue light, favors higher frequencies, giving us the properties we want: no particular part of the space as a whole looks favored, but exact placements are unpredictable and uncorrelated.</p>
+      <p>If it seems odd to think of frequencies and power spectra when you are trying to plant some virtual trees, you could think of it this way: within the generated forest, we want trees to be roughly evenly spaced, with no large region of our forest noticeably more dense than another, so we want to eliminate low-frequency noise. At the same time, we want minimal correlation between tree positions. We can obtain that with high-frequency noise.</p>
+      <h2>Possible Approaches</h2>
+      <p>For those familiar with the concept, all that stuff above talking about frequencies might suggest using a discrete Fourier transform! We could take our desired spectrum-domain behavior, generate random values in the frequency domain based on that shape, and then use the inverse Fourier transform to construct the sample data that would generate it. That is how I created the graphs above! It's great when we are working in just one dimension like the line heights in those images, but gets hairier in two or more dimensions. Plus, Fourier transforms are a cool concept I'd like to devote a whole article to. So we are going to look at some other methods.</p>
+      <p>The one I am going to go into detail on here is usually referred to as Fast Poisson Disk Sampling, from the title of a <cite><a href="./bridson-siggraph07-poissondisk.pdf">SIGGRAPH paper by Robert Bridson</a></cite>. I'll mention a few others first, though because they are interesting in their own right.</p>
+      <h3>Jittered Grid</h3>
+      <p>Possibly the simplest thing we could do is note that a grid isn't actually that far off of what we want. We could take the points on that grid, and randomly push them around a bit. Depending on how you scale the jitter, you can tradeoff between more clumping or more grid-aligned correlations, but you can't really get rid of both at once. For some purposes this may be good enough, though!</p>
+      <threecolumns>
+        <figure>
+          <img src="jittered_grid_square.svg"/>
+          <figcaption>Animation illustrating jittered grid points.</figcaption>
+        </figure>
+        <figure>
+          <img src="jittered_grid_staggered.svg"/>
+          <figcaption>Animation illustrating jittered grid points starting from a staggered grid.</figcaption>
+        </figure>
+      </threecolumns>
+      <h3>Dart Throwing</h3>
+      <p>The simplest thing we could do and still solve the problem would probably be to generate points in the straightforward white noise way and then remove the ones that are making it un-blue-noisy. As you can probably see, that would be making the computer do a lot of extra work, but it does get us very close to one common way of approaching the problem</p>
       <p>To efficiently come up with our own evenly-spaced-but-random points, we'll use a technique called Fast Poisson Disk Sampling, which I believe comes from <cite><a href="./bridson-siggraph07-poissondisk.pdf">a SIGGRAPH paper by Robert Bridson</a></cite>. The defining property of a Poisson disk sampling is that the points are distributed with no two closer together than some chosen minimum distance. At a high level, Bridson's algorithm works by first picking a random seed point, then for future points, it steps at least a minimum distance away in a random direction and tests to see if that new point is not too close to one we already have. This is made efficient by linking points to an underlying grid that lets us quickly determine which points could be near the candidate point.</p>
       <h2>The Algorithm</h2>
       <h3>Inputs to the Algorithm</h3>

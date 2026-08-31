@@ -79,16 +79,7 @@
   <body>
     <main>
       <h1>Placing Points</h1>
-      <p>In videogames and computer graphics, we often want to distribute something throughout a 
-region, like placing trees in a videogame forest or points to sample in a raytracer. In cases like
-these, the most straightforward approaches have some big drawbacks. If we simply choose points in a
-regular grid, it will look artificial and produce <a href="https://en.wikipedia.org/wiki/Aliasing">
-aliasing</a> effects and <a href="https://en.wikipedia.org/wiki/Moir%C3%A9_pattern">Moiré 
-patterns</a>. If we avoid those artifacts by choosing positions of the points using random numbers, 
-we will tend to have the problem of too much clustering of points and large gaps between clusters 
-of points. We need a balance between the chaos of pure randomness and the unnatural order of 
-regular spacing, keeping the points looking evenly spaced when viewed at large scales, but not 
-predictable on smaller scales. Distributions meeting those criteria are sometimes called blue noise. </p>
+      <p>In videogames and computer graphics, we often want to distribute something throughout a region, like placing trees in a videogame forest or points to sample in a aytracer. In cases like these, the most straightforward approaches have some big drawbacks. If we simply choose points in a regular grid, it will look artificial and produce <a href="https://en.wikipedia.org/wiki/Aliasing">aliasing</a> effects and <a href="https://en.wikipedia.org/wiki/Moir%C3%A9_pattern">Moiré patterns</a>. If we avoid those artifacts by choosing positions of the points using random numbers, we will tend to have the problem of too much clustering of points and large gaps between clusters of points. We need a balance between the chaos of pure randomness and the unnatural order of regular spacing, keeping the points looking evenly spaced when viewed at large scales, but not predictable on smaller scales. Distributions meeting those criteria are sometimes called blue noise.</p>
       <threecolumns>
         <figure>
           <img src="intro_grid.svg"/>
@@ -104,11 +95,11 @@ predictable on smaller scales. Distributions meeting those criteria are sometime
         </figure>
       </threecolumns>
       <h2>Colors of Noise</h2>
-      <p>The term "blue noise" comes from signal processing used in the electronics and audio fields. It is sort of making an analogy with visible light to characterize noisy signals based on how much different frequencies are contributing to it. In audio, we experience this as the pitch and timbre of a sound, and in light we perceive it as color. White noise is probably the most familiar "color of noise". It is so named because, like white light, it is made up of a balance of many different frequencies. When the light we see contains more of the higher frequencies of light, we percieve it as blue light. So blue noise is noise that favors higher frequences. If we want to get technical, the colors of noise are defined in terms of <a href="https://en.wikipedia.org/wiki/Spectral_density#Power_spectral_density">power spectral density</a>.</p>
+      <p>The term "blue noise" comes from signal processing used in the electronics and audio fields. It is sort of making an analogy with visible light to characterize noisy signals based on how much different frequencies are contributing to it. In audio, we experience this as the pitch and timbre of a sound, and in light we perceive it as color. White noise is probably the most familiar "color of noise". It is so named because, like white light, it is made up of a balance of many different frequencies. When the light we see contains more of the higher frequencies of light, we percieve it as blue light. So blue noise is noise that favors higher frequences. If we want to get technical, the colors of noise are defined in terms of <a href="https://en.wikipedia.org/wiki/Spectral_density#Power_spectral_density">power spectral density</a>, which will be familiar from music visualizers. When the bars on the left are high, the low frequencies have more energy and when the bars on the right are high, the high frequencies have more energy.</p>
       <threecolumns>
         <figure>
           <img src="colors_of_noise_white.svg"/>
-          <figcaption>White noise (top) and its relatively flat power spectrum (bottom)</figcaption>
+          <figcaption>White noise (top) and its flat power spectrum (bottom)</figcaption>
         </figure>
         <figure>
           <img src="colors_of_noise_blue.svg"/>

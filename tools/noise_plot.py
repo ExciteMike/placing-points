@@ -6,7 +6,7 @@ from random import random
 import math
 import numpy as np
 
-NUM_SAMPLES = 2000000
+NUM_SAMPLES = 2_000_000
 HIGH_PASS_WINDOW = 3
 MARGIN = 0
 GAP = 8
@@ -19,33 +19,73 @@ PLOT_RIGHT = FULL_WIDTH - MARGIN
 PLOT2_TOP = PLOT_HEIGHT + MARGIN + GAP
 PLOT2_BOTTOM = FULL_HEIGHT - MARGIN
 SAMPLE_PLOT_LIMIT = PLOT_WIDTH
-NUM_BINS = int(PLOT_WIDTH / 4)
+NUM_BINS = PLOT_WIDTH//4
 
 def moving_average(a, n):
     return np.convolve(a, np.ones(n), 'valid') / n
 
 def gen_white_noise():
-    return np.random.rand(NUM_SAMPLES)
+    # white noise has flat power spectrum density (which means beta = 0)
+    return gen_power_law(0, NUM_SAMPLES)
 
 def gen_brownian_noise():
-    white = np.random.rand(NUM_SAMPLES) - 0.5
-    return moving_average(white, 32)
+    # red AKA Brownian noise has spectrum density proportional to the inverse of frequency squared (which means beta = 2)
+    return gen_power_law(2, NUM_SAMPLES)
+    #white = np.random.rand(NUM_SAMPLES) - 0.5
+    #return moving_average(white, 32)
+
+def gen_pink_noise():
+    # pink noise has spectrum density proportional to the inverse of frequency (which means beta = 1)
+    return gen_power_law(1, NUM_SAMPLES)
 
 def gen_blue_noise():
-    white = np.random.randn(NUM_SAMPLES)
-    smoothed = moving_average(white, HIGH_PASS_WINDOW)
-    size_diff = white.size - smoothed.size
-    if size_diff%2 != 0:
-        print(f"HIGH_PASS_WINDOW should be odd. was {HIGH_PASS_WINDOW}")
-        exit(1)
-    offset = int(size_diff / 2)
-    without_ends = white[offset:-offset]
-    return without_ends - smoothed
+    # blue noise has power spectrum density proportional to frequency (which means beta = -1)
+    return gen_power_law(-1, NUM_SAMPLES)
+
+def gen_power_law(exponent: float, n_samples: int):
+    r"""generate noise whose power spectrum is proportional to 1 / (frequency^exponent).
+    
+    The variance/standard deviation are arbitrary. See the paper 
+        Timmer, J. and Koenig, M.:
+        On generating power law noise.
+        Astron. Astrophys. 300, 707-710 (1995)
+    for a better algorithm."""
+    frequencies = np.fft.rfftfreq(n_samples)
+    
+    # cut off frequencies below 1/n_samples
+    scaling_factors = frequencies
+    f_min = 1.0 / n_samples
+    cutoff = np.sum(frequencies < f_min)
+    if 0 < cutoff < len(frequencies):
+        scaling_factors[:cutoff] = scaling_factors[cutoff]
+    scaling_factors = scaling_factors**(-0.5 * exponent)
+
+    rng = np.random.default_rng()
+    size = len(scaling_factors)
+    real_parts = rng.normal(scale=scaling_factors, size=size)
+    imag_parts = rng.normal(scale=scaling_factors, size=size)
+
+    # for reasons I don't understand,
+    # if the number of samples is even, the last value must be real
+    if n_samples % 2 == 0:
+        real_parts[-1] *= math.sqrt(2)
+        imag_parts[-1] = 0
+
+    # this part must be real for reasons I don't understand
+    real_parts[0] *= math.sqrt(2)
+    imag_parts[0] = 0
+
+    frequency_domain_values = real_parts + 1J * imag_parts
+
+    # inverse Fourier xform
+    return np.fft.irfft(frequency_domain_values, n=n_samples)
+
 
 def normalize(a):
     lo = np.min(a)
     hi = np.max(a)
     return (a - lo) / (hi - lo)
+
 
 def make_noise_graphs(path, samples):
     samples = normalize(samples)
@@ -80,10 +120,10 @@ def make_noise_graphs(path, samples):
         f.write(f"\"/>")
 
         abs_freq = np.abs(frequencies)
-        log_freq = np.power(math.e, abs_freq)
+        log_freq = abs_freq # np.power(math.e, abs_freq)
         bin_counts = np.histogram(log_freq, NUM_BINS)[0]
         bin_counts_safe = np.where(bin_counts==0, 1, bin_counts)
-        power_spectrum_log = normalize(np.log(power_spectrum + 1))
+        power_spectrum_log = power_spectrum # normalize(np.log(power_spectrum + 1))
         bin_sums = np.histogram(log_freq, NUM_BINS, weights=power_spectrum_log)[0]
         bin_means = bin_sums / bin_counts_safe
         normalized = bin_means / bin_means.max()
@@ -98,10 +138,7 @@ def make_noise_graphs(path, samples):
             prev_x = x
         f.write(f""" L {PLOT_RIGHT} {PLOT2_BOTTOM} z\" fill="blue" stroke="none"/></svg>""")
 
-make_noise_graphs("../dist/white_noise.svg", gen_white_noise())
-
-# blue noise - ideally, has power spectrum density proportional to frequency
-make_noise_graphs("../dist/blue_noise.svg", gen_blue_noise())
-
-# brownian noise aka red noise - power spectrum density proportional to one over the frequency squared
-make_noise_graphs("../dist/red_noise.svg", gen_brownian_noise())
+make_noise_graphs("../dist/colors_of_noise_white.svg", gen_white_noise())
+make_noise_graphs("../dist/colors_of_noise_blue.svg", gen_blue_noise())
+make_noise_graphs("../dist/colors_of_noise_red.svg", gen_brownian_noise())
+make_noise_graphs("../dist/colors_of_noise_pink.svg", gen_pink_noise())

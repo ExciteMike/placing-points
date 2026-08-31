@@ -3,10 +3,13 @@
     <title>Placing Points - Fast Poisson Disk</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+    <!--<link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">-->
+    <link href="https://fonts.googleapis.com/css2?family=Merriweather:ital,opsz,wght@0,18..144,300..900;1,18..144,300..900&display=swap" rel="stylesheet">
     <style>
       html, body {
-        font-family: 'Roboto', sans-serif;
+        font-family: 'Merriweather', serif;
+        font-size: 16px;
+        font-optical-sizing: auto;
         margin: 0;
         padding: 0;
         height: 100%;
@@ -19,7 +22,7 @@
       main {
         display: flex;
         flex-direction: column;
-        flex-wrap: wrap;
+        gap: 16px;
         align-items: start;
         max-width: 800px;
         margin-left: auto;
@@ -32,10 +35,10 @@
       row {
         display: flex;
         flex-direction: row;
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
         justify-content: center;
         > * {
-          flex: 0 1 0;
+          flex: 0 1 auto;
         }
       }
       captioned {
@@ -57,24 +60,33 @@
       code {
         background-color: #eee;
       }
+      hr {
+        align-self: stretch;
+      }
+      threecolumns {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 8px;
+      }
     </style>
   </head>
   <body>
     <main>
       <h1>Placing Points</h1>
-      <spacer></spacer>
       <p>In videogames and computer graphics, we often want to distribute something 
-throughout a space, like placing trees in a videogame forest or for 
-sampling in a raytracer. In cases like these, the most straightforward 
-approaches have some big drawbacks. Simply choosing points in a regular grid,
-the regularity will stand out and look overly artificial. Uniform random 
-coordinates break the patterns, but they produce too much clumping and gaps to
-be good for these purposes like these. When we want placement of things to look
-organic, random and spread out pretty evenly, we generate what is sometimes 
-called a blue noise pattern. 
+throughout a space, like placing trees in a videogame forest or points to sample in a 
+raytracer. In cases like these, the most straightforward approaches have some big 
+drawbacks. If we simply choose points in a regular grid, it will look artificial and
+produce <a href="https://en.wikipedia.org/wiki/Aliasing">aliasing</a> effects and 
+<a href="https://en.wikipedia.org/wiki/Moir%C3%A9_pattern">Moiré patterns</a>. If we 
+avoid those effects by choosing positions of the points independently using random 
+numbers, we will tend to have the problem of too much clustering of points and large 
+gaps between clusters of points. We need a balance between the chaos of pure 
+randomness and the unnatural order of regular spacing, keeping the points looking
+evenly spaced when viewed at large scales, but not quite predictable when we consider
+a zoomed-in view. Distributions meeting those criteria are sometimes called blue noise. 
       </p>
-      <spacer></spacer>
-      <row>
+      <threecolumns>
         <captioned>
           <svg width="240" height="180">
             <rect x="0" y="0" width="240" height="180" fill="#f9f9f9"></rect>
@@ -333,7 +345,6 @@ called a blue noise pattern.
           </svg>
           <span>250 Points distributed on a uniform grid</span>
         </captioned>
-        <spacer></spacer>
         <captioned>
           <svg width="240" height="180">
             <rect x="0" y="0" width="240" height="180" fill="#f9f9f9"></rect>
@@ -343,7 +354,6 @@ called a blue noise pattern.
           </svg>
           <span>250 Points distributed randomly</span>
         </captioned>
-        <spacer></spacer>
         <captioned>
           <svg width="240" height="180">
             <rect x="0" y="0" width="240" height="180" fill="#f9f9f9"></rect>
@@ -353,23 +363,30 @@ called a blue noise pattern.
           </svg>
           <span>Blue noise (250 points)</span>
         </captioned>
-      </row>
-      <spacer></spacer>
-      <p>The term blue noise comes from an analogy with frequencies of visible light. If it seems a little odd to think of frequencies in this context you could think of it this way: low-frequency noise would mean that large areas of the image look different from each other, and high frequency noise would mean that when you zoom in, a small area of the image looks different from another small area. Like white light, white noise is varied at all scales. Blue noise, like blue light, favors higher frequencies, giving us the properties we want: no particular part of the space as a whole looks favored, but exact placements are unpredictable and uncorrelated.
-      </p>
-      <spacer></spacer>
-      <p>To efficiently come up with our own evenly-spaced-but-random points, we'll use a technique called Fast Poisson Disk Sampling, which I believe comes from <cite><a href="./bridson-siggraph07-poissondisk.pdf">a SIGGRAPH paper by Robert Bridson</a></cite>. The defining property of a Poisson disk sampling is that the points are distributed with no two closer together than some chosen minimum distance. At a high level, Bridson's algorithm works by first picking a random seed point, then for future points, it steps at least a minimum distance away in a random direction and tests to see if that new point is not too close to one we already have. This is made efficient by linking points to an underlying grid that lets us quickly determine which points could be near the candidate point.
-      </p>
-      <spacer></spacer>
+      </threecolumns>
+      <h2>Colors of Noise</h2>
+      <p>The term "blue noise" comes from signal processing used in the electronics and audio fields. It is sort of making an analogy with visible light to characterize noisy signals based on how much different frequencies are contributing to it. In audio, we experience this as the pitch and timbre of a sound, and in light we perceive it as color. White noise is probably the most familiar "color of noise". It is so named because, like white light, it is made up of a balance of many different frequencies. When the light we see contains more of the higher frequencies of light, we percieve it as blue light. So blue noise is noise that favors higher frequences. If we want to get technical, the colors of noise are defined in terms of <a href="https://en.wikipedia.org/wiki/Spectral_density#Power_spectral_density">power spectral density</a>.</p>
+      <threecolumns>
+        <captioned>
+          <img src="white_noise.svg"/>
+          <span>White noise (top) and its relatively flat power spectrum (bottom)</span>
+        </captioned>
+        <captioned>
+          <img src="blue_noise.svg"/>
+          <span>Blue noise (top) and its power spectrum (bottom) which favors higher frequencies</span>
+        </captioned>
+        <captioned>
+          <img src="red_noise.svg"/>
+          <span>Brownian noise AKA red noise (top) and its power spectrum (bottom) which favors lower frequencies</span>
+        </captioned>  
+      </threecolumns>
+      <p>If it seems a little odd to think of frequencies and power spectra when you are trying to plant some virtual plants, you could think of it this way: low-frequency noise would mean that large areas of the image look different from each other, and high frequency noise would mean that when you zoom in, a small area of the image looks different from another small area. Like white light, white noise is varied at all scales. Blue noise, like blue light, favors higher frequencies, giving us the properties we want: no particular part of the space as a whole looks favored, but exact placements are unpredictable and uncorrelated.      </p>
+      <p>To efficiently come up with our own evenly-spaced-but-random points, we'll use a technique called Fast Poisson Disk Sampling, which I believe comes from <cite><a href="./bridson-siggraph07-poissondisk.pdf">a SIGGRAPH paper by Robert Bridson</a></cite>. The defining property of a Poisson disk sampling is that the points are distributed with no two closer together than some chosen minimum distance. At a high level, Bridson's algorithm works by first picking a random seed point, then for future points, it steps at least a minimum distance away in a random direction and tests to see if that new point is not too close to one we already have. This is made efficient by linking points to an underlying grid that lets us quickly determine which points could be near the candidate point.</p>
       <h2>The Algorithm</h2>
-      <spacer></spacer>
       <h3>Inputs to the Algorithm</h3>
-      <spacer></spacer>
       <p>Our fast Poisson disk function will do its thing based on: the size of the area/volume to place things in, a minimum distance between the generated points, a maximum number of points to generate, and an additional tunable number, <code>max_tries</code>, that will make more sense later, but essentially controls how hard it works to fill the space around a generated point before it gives up on placing more near it. 30 is a typical value.
       </p>
-      <spacer></spacer>
-      <p>Bridson's algorithm works in any number of dimensions, but I am presenting it here in only two for simplicity's sake.</p>
-      <spacer></spacer>
+      <p>Bridson's algorithm works in any number of dimensions, but I am presenting it here in only two dimensions for simplicity's sake.</p>
       TODO: code snippet of function signature and image of the empty square
 ## Setting Up the Data Structures
 
@@ -395,11 +412,23 @@ TODO: images with legend to demonstrate the various steps and mark and explain w
 TODO: link to the github
 TODO: images with different settings
 TODO: link to socials and ko-fi and patreon
-
       <spacer></spacer>
       <h2>References</h2>
-      <spacer></spacer>
       <p>Robert Bridson. 2007. Fast Poisson disk sampling in arbitrary dimensions. In ACM SIGGRAPH 2007 sketches (SIGGRAPH '07). Association for Computing Machinery, New York, NY, USA, 22–es. <a href="https://doi.org/10.1145/1278780.1278807">https://doi.org/10.1145/1278780.1278807</a></p>
+      <spacer></spacer>
+      <hr/>
+      <h2>Social Media</h2>
+      <row>
+        <a href="https://bsky.app/profile/rainbowheadmike.bsky.social"><svg fill="none" viewBox="0 0 64 57" style="width:1em;height:1em;"><path fill="#006AFF" d="M13.873 3.805C21.21 9.332 29.103 20.537 32 26.55v15.882c0-.338-.13.044-.41.867-1.512 4.456-7.418 21.847-20.923 7.944-7.111-7.32-3.819-14.64 9.125-16.85-7.405 1.264-15.73-.825-18.014-9.015C1.12 23.022 0 8.51 0 6.55 0-3.268 8.579-.182 13.873 3.805ZM50.127 3.805C42.79 9.332 34.897 20.537 32 26.55v15.882c0-.338.13.044.41.867 1.512 4.456 7.418 21.847 20.923 7.944 7.111-7.32 3.819-14.64-9.125-16.85 7.405 1.264 15.73-.825 18.014-9.015C62.88 23.022 64 8.51 64 6.55c0-9.818-8.578-6.732-13.873-2.745Z"></path></svg> Blue Sky</a>
+        <spacer></spacer>
+        <a href="https://mastodon.social/@ExciteMike"><img src="mastodonlogo.svg" alt="Mastodon logo" style="object-fit: contain;max-height:1em"> Mastodon</a>
+      </row>
+      <h2>Support</h2>
+      <row>
+        <a href="https://patreon.com/ExciteMike"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 436 476" style="height:1em;width:1em"><title>Patreon logo</title><path d="M436 143c-.084-60.778-47.57-110.591-103.285-128.565C263.528-7.884 172.279-4.649 106.214 26.424 26.142 64.089.988 146.596.051 228.883c-.77 67.653 6.004 245.841 106.83 247.11 74.917.948 86.072-95.279 120.737-141.623 24.662-32.972 56.417-42.285 95.507-51.929C390.309 265.865 436.097 213.011 436 143Z"></path></svg> Patreon</a>
+        <spacer></spacer>
+        <a href="https://ko-fi.com/excitemike/tip"><img src="https://storage.ko-fi.com/cdn/logomarkLogo.png" alt="Ko-fi tips" style="object-fit: contain;max-height:1em"> Ko-fi</a>
+      </row>
     </main>
   </body>
 </html>

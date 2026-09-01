@@ -63,8 +63,10 @@ with open("../dist/jittered_grid_staggered.svg", "w") as f:
     f.write(f"""<g fill="blue">""")
     for [x1, y1, x2, y2] in data:
         f.write(f"""<circle cx="{x2:.2f}" cy="{y2:.2f}" r="2">""")
-        f.write(f"""<animate attributeName="cx" values="{x1:.2f};{x2:.2f};{x2:.2f};{x2:.2f};{x2:.2f}" dur="5s" repeatCount="indefinite"/>""")
-        f.write(f"""<animate attributeName="cy" values="{y1:.2f};{y2:.2f};{y2:.2f};{y2:.2f};{y2:.2f}" dur="5s" repeatCount="indefinite"/>""")
+        cx_values = f"{x1:.2f}" + 9 * f";{x2:.2f}"
+        cy_values = f"{y1:.2f}" + 9 * f";{y2:.2f}"
+        f.write(f"""<animate attributeName="cx" values="{cx_values}" dur="5s" repeatCount="indefinite"/>""")
+        f.write(f"""<animate attributeName="cy" values="{cy_values}" dur="5s" repeatCount="indefinite"/>""")
         f.write(f"""</circle>""")
     f.write(f"""</g>""")
 

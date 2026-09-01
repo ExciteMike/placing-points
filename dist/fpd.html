@@ -55,6 +55,9 @@
       figcaption, h1, h2, h3, h4, h5, h6 {
         font-family: 'Merriweather Sans', sans-serif;
       }
+      h1 { font-size: 32px; }
+      h2 { font-size: 24px; }
+      h3, h4, h5, h6 { font-size: 16px; }
       figcaption {
         font-size:14px;
         font-weight: lighter;
@@ -128,11 +131,11 @@
         </figure>
       </threecolumns>
       <h3>Mitchell's Best Candidate</h3>
-      <p>Since the problem with pure random numbers was clumping, we can try to work around it by insead of throwing just one at a time, throwing many, and then only keeping the one from each batch is furthest from all the others. This can get get quite slow as the number of points to distance-test against gets large, but it produces pretty godo results and is easy to implement.</p>
+      <p>Since the problem with pure random numbers was clumping, we can try to work around it. If that method was like throwing darts, the Mitchell's Best Algorithm is throwing a whole handful of darts at a time, and then keeping only the dart that was furthest from all the previously kept darts. This can get quite slow as the number of points to distance-test against gets large. Depending on how many darts you are willing to throw at once, and how slow you are willing to let it get, it does produce good results and it is very easy to implement.</p>
       <threecolumns>
         <figure>
-          <img src=".svg"/>
-          <figcaption>Animation illustrating jittered grid points.</figcaption>
+          <img src="mitchells_best.svg"/>
+          <figcaption>Animation illustrating Mitchell's Best Candidate.</figcaption>
         </figure>
       </threecolumns>
       <p>The simplest thing we could do and still solve the problem would probably be to generate points in the straightforward white noise way and then remove the ones that are making it un-blue-noisy. As you can probably see, that would be making the computer do a lot of extra work, but it does get us very close to one common way of approaching the problem</p>

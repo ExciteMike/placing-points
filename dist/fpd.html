@@ -1,4 +1,4 @@
-<html>
+<!DOCTYPE html><html lang="en">
   <head>
     <meta charset="UTF-8">
     <title>Placing Points - Fast Poisson Disk</title>
@@ -15,31 +15,18 @@
         height: 100%;
         background-color: #eee;
       }
-      * { margin: 0; }
+      /* * { margin: 0; } */
       body {
         padding: 8px 0 8px 0;
       }
       main {
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-        align-items: start;
         max-width: 800px;
-        margin-left: auto;
+        margin: auto;
         margin-right: auto;
-        padding: 12px;
+        padding: 0 12px 12px 12px;
         border: 1px solid #ccc;
         border-radius: 4px;
         background-color: #f9f9f9;
-      }
-      row {
-        display: flex;
-        flex-direction: row;
-        flex-wrap: nowrap;
-        justify-content: center;
-        > * {
-          flex: 0 1 auto;
-        }
       }
       figure {
         display: flex;
@@ -58,14 +45,9 @@
       h1 { font-size: 32px; }
       h2 { font-size: 24px; }
       h3, h4, h5, h6 { font-size: 16px; }
-      figcaption {
+      figcaption, .byline, .dateline {
         font-size:14px;
         font-weight: lighter;
-      }
-      spacer {
-        width: 16px;
-        height: 16px;
-        flex: 0 0 auto;
       }
       code {
         background-color: #eee;
@@ -73,120 +55,158 @@
       hr {
         align-self: stretch;
       }
-      threecolumns {
+      .threecolumns {
         display: grid;
         grid-template-columns: 1fr 1fr 1fr;
         gap: 8px;
+        figure {margin: 0};
       }
+      aside {
+        max-width: 33%;
+        float: right;
+        padding-left: 16px;
+        margin-left: 8px;
+        box-shadow: inset 5px 0 5px -5px #399;
+        font-style: italic;
+        color: #066;
+        background-color: #f9f9f9;
+        z-index: 10;
+      }
+      .asideclear { clear: right; }
     </style>
   </head>
   <body>
     <main>
-      <h1>Placing Points</h1>
-      <p>In videogames and computer graphics, we often want to distribute something throughout a region. It may be placing trees in a virtual forest, or your renderer simulating light rays into the world to determine pixel color. In cases like these, the most straightforward approaches have some big drawbacks! If we simply choose points in a regular grid, it will look artificial and will produce undesirable <a href="https://en.wikipedia.org/wiki/Aliasing">aliasing</a> effects and <a href="https://en.wikipedia.org/wiki/Moir%C3%A9_pattern">Moiré patterns</a> based on distance and viewing angle. We may then try a "dart-throwing" method and use our random number generator to pick coordinates. But this too causes problems. It will tend to produce some regions with dense clusters of points and leave large gaps between those clusters. We need a balance between the chaos of pure randomness and the unnatural order of regular spacing, keeping the points looking evenly spaced when viewed at large scales, but not predictable on smaller scales. Distributions meeting those criteria are sometimes called blue noise.</p>
-      <threecolumns>
-        <figure>
-          <img src="intro_grid.svg"/>
-          <figcaption>250 Points distributed on a uniform grid</figcaption>
-        </figure>
-        <figure>
-          <img src="intro_white.svg"/>
-          <figcaption>250 Points distributed randomly</figcaption>
-        </figure>
-        <figure>
-          <img src="intro_blue.svg"/>
-          <figcaption>Blue noise (250 points)</figcaption>
-        </figure>
-      </threecolumns>
-      <h2>Colors of Noise</h2>
-      <p>The term "blue noise" comes from signal processing and comes up in electronics and audio-related fields. They are making an analogy with visible light to characterize noisy signals based on how much different frequencies are contributing to it. In audio, we experience this as the pitch and timbre of a sound, and in light we perceive it as color. White noise is probably the most familiar "color of noise". It is so named because, like white light, it is made up of a balance of many different frequencies. When the light we see contains more of the lower frequencies of light, we perceive it as redder, and when the higher frequencies dominate, we see it as bluer. So blue noise is noise that favors higher frequences.</p>
-      <threecolumns>
-        <figure>
-          <img src="colors_of_noise_white.svg"/>
-          <figcaption>White noise (top) and its flat power spectrum (bottom)</figcaption>
-        </figure>
-        <figure>
-          <img src="colors_of_noise_blue.svg"/>
-          <figcaption>Blue noise (top) and its power spectrum (bottom) which favors higher frequencies</figcaption>
-        </figure>
-        <figure>
-          <img src="colors_of_noise_red.svg"/>
-          <figcaption>Red noise AKA Brownian noise (top) and its power spectrum (bottom) which favors lower frequencies</figcaption>
-        </figure>
-      </threecolumns>
-      <p>If it seems odd to think of frequencies and power spectra when you are trying to plant some virtual trees, you could think of it this way: within the generated forest, we want trees to be roughly evenly spaced, with no large region of our forest noticeably more dense than another, so we want to eliminate low-frequency noise. At the same time, we want minimal correlation between tree positions. We can obtain that with high-frequency noise.</p>
-      <h2>Possible Approaches</h2>
-      <p>For those familiar with the concept, all that stuff above talking about frequencies might suggest using a discrete Fourier transform! We could take our desired spectrum-domain behavior, generate random values in the frequency domain based on that shape, and then use the inverse Fourier transform to construct the sample data that would generate it. That is how I created the graphs above! It's great when we are working in just one dimension like the line heights in those images, but gets hairier in two or more dimensions. Plus, Fourier transforms are a cool concept I'd like to devote a whole article to. So we are going to look at some other methods.</p>
-      <p>The one I am going to go into detail on here is usually referred to as Fast Poisson Disk Sampling, from the title of a <cite><a href="./bridson-siggraph07-poissondisk.pdf">SIGGRAPH paper by Robert Bridson</a></cite>. I'll mention a few others first, though because they are interesting in their own right.</p>
-      <h3>Jittered Grid</h3>
-      <p>Possibly the simplest thing we could do is note that a grid isn't actually that far off of what we want. We could take the points on that grid, and randomly push them around a bit. Depending on how you scale the jitter, you can tradeoff between more clumping or more grid-aligned correlations, but you can't really get rid of both at once. For some purposes this may be good enough, though!</p>
-      <threecolumns>
-        <figure>
-          <img src="jittered_grid_square.svg"/>
-          <figcaption>Animation illustrating jittered grid points.</figcaption>
-        </figure>
-        <figure>
-          <img src="jittered_grid_staggered.svg"/>
-          <figcaption>Animation illustrating jittered grid points starting from a staggered grid.</figcaption>
-        </figure>
-      </threecolumns>
-      <h3>Mitchell's Best Candidate</h3>
-      <p>Since the problem with pure random numbers was clumping, we can try to work around it. If that method was like throwing darts, the Mitchell's Best Algorithm is throwing a whole handful of darts at a time, and then keeping only the dart that was furthest from all the previously kept darts. This can get quite slow as the number of points to distance-test against gets large. Depending on how many darts you are willing to throw at once, and how slow you are willing to let it get, it does produce good results and it is very easy to implement.</p>
-      <threecolumns>
-        <figure>
-          <img src="mitchells_best.svg"/>
-          <figcaption>Animation illustrating Mitchell's Best Candidate.</figcaption>
-        </figure>
-      </threecolumns>
-      <p>The simplest thing we could do and still solve the problem would probably be to generate points in the straightforward white noise way and then remove the ones that are making it un-blue-noisy. As you can probably see, that would be making the computer do a lot of extra work, but it does get us very close to one common way of approaching the problem</p>
-      <p>To efficiently come up with our own evenly-spaced-but-random points, we'll use a technique called Fast Poisson Disk Sampling, which I believe comes from <cite><a href="./bridson-siggraph07-poissondisk.pdf">a SIGGRAPH paper by Robert Bridson</a></cite>. The defining property of a Poisson disk sampling is that the points are distributed with no two closer together than some chosen minimum distance. At a high level, Bridson's algorithm works by first picking a random seed point, then for future points, it steps at least a minimum distance away in a random direction and tests to see if that new point is not too close to one we already have. This is made efficient by linking points to an underlying grid that lets us quickly determine which points could be near the candidate point.</p>
-      <h2>The Algorithm</h2>
-      <h3>Inputs to the Algorithm</h3>
-      <p>Our fast Poisson disk function will do its thing based on: the size of the area/volume to place things in, a minimum distance between the generated points, a maximum number of points to generate, and an additional tunable number, <code>max_tries</code>, that will make more sense later, but essentially controls how hard it works to fill the space around a generated point before it gives up on placing more near it. 30 is a typical value.
-      </p>
-      <p>Bridson's algorithm works in any number of dimensions, but I am presenting it here in only two dimensions for simplicity's sake.</p>
-      TODO: code snippet of function signature and image of the empty square
-## Setting Up the Data Structures
+      <article>
+        <h1>Placing Points</h1>
+        <div class="byline">By Mike Meyer</div>
+        <div class="dateline">2026-09-INSERT DATE</div>
+        <aside>
+          <p>Formatting test: An example of an aside.</p>
+          <p>Alice was beginning to get very tired of sitting by her sister on the bank, and of having nothing to do: once or twice she had peeped into the book her sister was reading, but it had no pictures or conversations in it, “and what is the use of a book,” thought Alice “without pictures or conversations?”</p>
+          <p>So she was considering in her own mind (as well as she could, for the hot day made her feel very sleepy and stupid), whether the pleasure of making a daisy-chain would be worth the trouble of getting up and picking the daisies, when suddenly a White Rabbit with pink eyes ran close by her.</p>
+        </aside>
+        <p>In videogames and computer graphics, we often want to distribute something throughout a region. It may be placing trees in a virtual forest, or your renderer simulating light rays into the world to determine pixel color. In cases like these, the most straightforward approaches have some big drawbacks! If we simply choose points in a regular grid, it will look artificial and will produce undesirable <a href="https://en.wikipedia.org/wiki/Aliasing">aliasing</a> effects and <a href="https://en.wikipedia.org/wiki/Moir%C3%A9_pattern">Moiré patterns</a> based on distance and viewing angle. We may then try a "dart-throwing" method and use our random number generator to pick coordinates. But this too causes problems. It will tend to produce some regions with dense clusters of points and leave large gaps between those clusters. We need a balance between the chaos of pure randomness and the unnatural order of regular spacing, keeping the points looking evenly spaced when viewed at large scales, but not predictable on smaller scales. Distributions meeting those criteria are sometimes called blue noise.</p>
+        <div class="asideclear"></div>
+        <button type="button" command="show-modal" commandfor="example-modal">Test Modal</button>
+        <dialog id="example-modal">
+          <p>Example modal content</p>
+          <button type="button" command="close" commandfor="example-modal">Close</button>
+        </dialog>
+        <button type="button" popovertarget="example-dialog">Test non-modal</button>
+        <dialog id="example-dialog" popover>
+          <p>Example nonmodal content</p>
+          <button type="button" popovertarget="example-dialog" popovertargetaction="hide">Close</button>
+        </dialog>
+        <div class="threecolumns">
+          <figure>
+            <img src="intro_grid.svg" alt="250 Points distributed on a uniform grid"/>
+            <figcaption>250 Points distributed on a uniform grid</figcaption>
+          </figure>
+          <figure>
+            <img src="intro_white.svg" alt="250 Points distributed randomly"/>
+            <figcaption>250 Points distributed randomly</figcaption>
+          </figure>
+          <figure>
+            <img src="intro_blue.svg" alt="Blue noise (250 points)"/>
+            <figcaption>Blue noise (250 points)</figcaption>
+          </figure>
+        </div>
+        <section>
+          <h2>Colors of Noise</h2>
+          <p>The term "blue noise" comes from signal processing and comes up in electronics and audio-related fields. They are making an analogy with visible light to characterize noisy signals based on how much different frequencies are contributing to it. In audio, we experience this as the pitch and timbre of a sound, and in light we perceive it as color. White noise is probably the most familiar "color of noise". It is so named because, like white light, it is made up of a balance of many different frequencies. When the light we see contains more of the lower frequencies of light, we perceive it as redder, and when the higher frequencies dominate, we see it as bluer. So blue noise is noise that favors higher frequences.</p>
+          <div class="threecolumns">
+            <figure>
+              <img src="colors_of_noise_white.svg" alt="White noise (top) and its flat power spectrum (bottom)"/>
+              <figcaption>White noise (top) and its flat power spectrum (bottom)</figcaption>
+            </figure>
+            <figure>
+              <img src="colors_of_noise_blue.svg" alt="Blue noise (top) and its power spectrum (bottom) which favors higher frequencies"/>
+              <figcaption>Blue noise (top) and its power spectrum (bottom) which favors higher frequencies</figcaption>
+            </figure>
+            <figure>
+              <img src="colors_of_noise_red.svg" alt="Red noise AKA Brownian noise (top) and its power spectrum (bottom) which favors lower frequencies"/>
+              <figcaption>Red noise AKA Brownian noise (top) and its power spectrum (bottom) which favors lower frequencies</figcaption>
+            </figure>
+          </div>
+          <p>If it seems odd to think of frequencies and power spectra when you are trying to plant some virtual trees, you could think of it this way: within the generated forest, we want trees to be roughly evenly spaced, with no large region of our forest noticeably more dense than another, so we want to eliminate low-frequency noise. At the same time, we want minimal correlation between tree positions. We can obtain that with high-frequency noise.</p>
+        </section>
+        <section>
+          <h2>Possible Approaches</h2>
+          <p>For those familiar with the concept, all that stuff above talking about frequencies might suggest using a discrete Fourier transform! We could take our desired spectrum-domain behavior, generate random values in the frequency domain based on that shape, and then use the inverse Fourier transform to construct the sample data that would generate it. That is how I created the graphs above! It's great when we are working in just one dimension like the line heights in those images, but gets hairier in two or more dimensions. Plus, Fourier transforms are a cool concept I'd like to devote a whole article to. So we are going to look at some other methods.</p>
+          <p>The one I am going to go into detail on here is usually referred to as Fast Poisson Disk Sampling, from the title of a <cite><a href="./bridson-siggraph07-poissondisk.pdf">SIGGRAPH paper by Robert Bridson</a></cite>. I'll mention a few others first, though because they are interesting in their own right.</p>
+          <h3>Jittered Grid</h3>
+          <p>Possibly the simplest thing we could do is note that a grid isn't actually that far off of what we want. We could take the points on that grid, and randomly push them around a bit. Depending on how you scale the jitter, you can tradeoff between more clumping or more grid-aligned correlations, but you can't really get rid of both at once. For some purposes this may be good enough, though!</p>
+          <div class="threecolumns">
+            <figure>
+              <img src="jittered_grid_square.svg" alt="Animation illustrating jittered grid points."/>
+              <figcaption>Animation illustrating jittered grid points.</figcaption>
+            </figure>
+            <figure>
+              <img src="jittered_grid_staggered.svg" alt="Animation illustrating jittered grid points starting from a staggered grid."/>
+              <figcaption>Animation illustrating jittered grid points starting from a staggered grid.</figcaption>
+            </figure>
+          </div>
+          <h3>Mitchell's Best Candidate</h3>
+          <p>Since the problem with pure random numbers was clumping, we can try to work around it. If that method was like throwing darts, the Mitchell's Best Algorithm is throwing a whole handful of darts at a time, and then keeping only the dart that was furthest from all the previously kept darts. This can get quite slow as the number of points to distance-test against gets large. Depending on how many darts you are willing to throw at once, and how slow you are willing to let it get, it does produce good results and it is very easy to implement.</p>
+          <div class="threecolumns">
+            <figure>
+              <img src="mitchells_best.svg" alt="Animation illustrating Mitchell's Best Candidate."/>
+              <figcaption>Animation illustrating Mitchell's Best Candidate.</figcaption>
+            </figure>
+          </div>
+          <p>The simplest thing we could do and still solve the problem would probably be to generate points in the straightforward white noise way and then remove the ones that are making it un-blue-noisy. As you can probably see, that would be making the computer do a lot of extra work, but it does get us very close to one common way of approaching the problem</p>
+          <p>To efficiently come up with our own evenly-spaced-but-random points, we'll use a technique called Fast Poisson Disk Sampling, which I believe comes from <cite><a href="./bridson-siggraph07-poissondisk.pdf">a SIGGRAPH paper by Robert Bridson</a></cite>. The defining property of a Poisson disk sampling is that the points are distributed with no two closer together than some chosen minimum distance. At a high level, Bridson's algorithm works by first picking a random seed point, then for future points, it steps at least a minimum distance away in a random direction and tests to see if that new point is not too close to one we already have. This is made efficient by linking points to an underlying grid that lets us quickly determine which points could be near the candidate point.</p>
+          <h2>The Algorithm</h2>
+          <h3>Inputs to the Algorithm</h3>
+          <p>Our fast Poisson disk function will do its thing based on: the size of the area/volume to place things in, a minimum distance between the generated points, a maximum number of points to generate, and an additional tunable number, <code>max_tries</code>, that will make more sense later, but essentially controls how hard it works to fill the space around a generated point before it gives up on placing more near it. 30 is a typical value.
+          </p>
+          <p>Bridson's algorithm works in any number of dimensions, but I am presenting it here in only two dimensions for simplicity's sake.</p>
+          TODO: code snippet of function signature and image of the empty square
+  ## Setting Up the Data Structures
 
-TODO: write this section
+  TODO: write this section
 
-TODO: code snippet of creating the grid, the active list, choosing the cell size, the point struct, and list of all points, and alongside that an image drawing the grid
-## Initial point
+  TODO: code snippet of creating the grid, the active list, choosing the cell size, the point struct, and list of all points, and alongside that an image drawing the grid
+  ## Initial point
 
-TODO: write this section
+  TODO: write this section
 
-TODO: code snippet for generating the point and updating the data structures, show the point in a grid space now
+  TODO: code snippet for generating the point and updating the data structures, show the point in a grid space now
 
-## The Loop
+  ## The Loop
 
-TODO: write this section
+  TODO: write this section
 
-TODO: show the code
+  TODO: show the code
 
-TODO: images with legend to demonstrate the various steps and mark and explain which ones are active. Draw the discs
+  TODO: images with legend to demonstrate the various steps and mark and explain which ones are active. Draw the discs
 
-## Wrap up
+  ## Wrap up
 
-TODO: link to the github
-TODO: images with different settings
-TODO: link to socials and ko-fi and patreon
-      <spacer></spacer>
-      <h2>References</h2>
-      <p>Robert Bridson. 2007. Fast Poisson disk sampling in arbitrary dimensions. In ACM SIGGRAPH 2007 sketches (SIGGRAPH '07). Association for Computing Machinery, New York, NY, USA, 22–es. <a href="https://doi.org/10.1145/1278780.1278807">https://doi.org/10.1145/1278780.1278807</a></p>
-      <spacer></spacer>
+  TODO: link to the github
+  TODO: images with different settings
+        </section>
+        <section>
+          <h2>References</h2>
+          <samp>Robert Bridson. 2007. Fast Poisson disk sampling in arbitrary dimensions. In ACM SIGGRAPH 2007 sketches (SIGGRAPH '07). Association for Computing Machinery, New York, NY, USA, 22–es. <a href="https://doi.org/10.1145/1278780.1278807">https://doi.org/10.1145/1278780.1278807</a></samp>
+        </section>
+      </article>
       <hr/>
-      <h2>Social Media</h2>
-      <row>
-        <a href="https://bsky.app/profile/rainbowheadmike.bsky.social"><svg fill="none" viewBox="0 0 64 57" style="width:1em;height:1em;"><path fill="#006AFF" d="M13.873 3.805C21.21 9.332 29.103 20.537 32 26.55v15.882c0-.338-.13.044-.41.867-1.512 4.456-7.418 21.847-20.923 7.944-7.111-7.32-3.819-14.64 9.125-16.85-7.405 1.264-15.73-.825-18.014-9.015C1.12 23.022 0 8.51 0 6.55 0-3.268 8.579-.182 13.873 3.805ZM50.127 3.805C42.79 9.332 34.897 20.537 32 26.55v15.882c0-.338.13.044.41.867 1.512 4.456 7.418 21.847 20.923 7.944 7.111-7.32 3.819-14.64-9.125-16.85 7.405 1.264 15.73-.825 18.014-9.015C62.88 23.022 64 8.51 64 6.55c0-9.818-8.578-6.732-13.873-2.745Z"></path></svg> Blue Sky</a>
-        <spacer></spacer>
-        <a href="https://mastodon.social/@ExciteMike"><img src="mastodonlogo.svg" alt="Mastodon logo" style="object-fit: contain;max-height:1em"> Mastodon</a>
-      </row>
-      <h2>Support</h2>
-      <row>
+      <section>
+        <h2>Where else you can find me</h2>
+          <a href="https://excitemike.com"><img src="small_pent.svg" width="28" height="16" alt=""> excitemike.com</a>
+          |
+          <a href="https://bsky.app/profile/rainbowheadmike.bsky.social"><svg fill="none" viewBox="0 0 64 57" style="width:1em;height:1em;"><path fill="#006AFF" d="M13.873 3.805C21.21 9.332 29.103 20.537 32 26.55v15.882c0-.338-.13.044-.41.867-1.512 4.456-7.418 21.847-20.923 7.944-7.111-7.32-3.819-14.64 9.125-16.85-7.405 1.264-15.73-.825-18.014-9.015C1.12 23.022 0 8.51 0 6.55 0-3.268 8.579-.182 13.873 3.805ZM50.127 3.805C42.79 9.332 34.897 20.537 32 26.55v15.882c0-.338.13.044.41.867 1.512 4.456 7.418 21.847 20.923 7.944 7.111-7.32 3.819-14.64-9.125-16.85 7.405 1.264 15.73-.825 18.014-9.015C62.88 23.022 64 8.51 64 6.55c0-9.818-8.578-6.732-13.873-2.745Z"></path></svg> Blue Sky</a>
+          |
+          <a href="https://mastodon.social/@ExciteMike"><img src="mastodonlogo.svg" alt="Mastodon logo" style="object-fit: contain;max-height:1em" width="16" height="16"> Mastodon</a>
+      </section>
+      <section>
+        <h2>Support</h2>
         <a href="https://patreon.com/ExciteMike"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 436 476" style="height:1em;width:1em"><title>Patreon logo</title><path d="M436 143c-.084-60.778-47.57-110.591-103.285-128.565C263.528-7.884 172.279-4.649 106.214 26.424 26.142 64.089.988 146.596.051 228.883c-.77 67.653 6.004 245.841 106.83 247.11 74.917.948 86.072-95.279 120.737-141.623 24.662-32.972 56.417-42.285 95.507-51.929C390.309 265.865 436.097 213.011 436 143Z"></path></svg> Patreon</a>
-        <spacer></spacer>
-        <a href="https://ko-fi.com/excitemike/tip"><img src="https://storage.ko-fi.com/cdn/logomarkLogo.png" alt="Ko-fi tips" style="object-fit: contain;max-height:1em"> Ko-fi</a>
-      </row>
+        |
+        <a href="https://ko-fi.com/excitemike/tip"><img src="https://storage.ko-fi.com/cdn/logomarkLogo.png" alt="Ko-fi tips" style="object-fit: contain;max-height:1em" width="16" height="16"> Ko-fi</a>
+      </section>
     </main>
   </body>
 </html>

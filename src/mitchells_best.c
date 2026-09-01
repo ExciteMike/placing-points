@@ -18,7 +18,7 @@ static float _point_radius = 4.f; /* radius of the circle we draw to indicate th
 static int _max_points = 45;   /* maximum allowed number of points */
 static int _num_candidates = 3; /* How many candidate points to test at each step. */
 static const char* _point_color = "blue"; /* color of the points */
-static const char* _candidate_color = "darkgrey"; /* color of the candidate points */
+static const char* _candidate_color = "gray"; /* color of the candidate points */
 static char *_out_path = "./dist/mitchells_best.svg";
 static const size_t DIMENSIONS = 2;
 static const float ANIM_DURATION = 45.f;
@@ -175,7 +175,7 @@ void write_temp_dot(
     float disappear_time = appear_time + frame_duration;
     begin_timed_group(file, NULL, NULL, appear_time, disappear_time);
     fprintf(file, "<circle cx=\"%.2f\" cy=\"%.2f\" r=\"%.2f\" fill=\"%s\"/>", cx, cy, _point_radius, _candidate_color);
-    fprintf(file, "<line x1=\"%.2f\" y1=\"%.2f\" x2=\"%.2f\" y2=\"%.2f\" r=\"%.2f\" stroke=\"%s\"/>", cx, cy, nearest_x, nearest_y, _point_radius, _candidate_color);
+    fprintf(file, "<line x1=\"%.2f\" y1=\"%.2f\" x2=\"%.2f\" y2=\"%.2f\" stroke=\"%s\"/>", cx, cy, nearest_x, nearest_y, _candidate_color);
     fprintf(file, "<circle cx=\"%.2f\" cy=\"%.2f\" r=\"%.2f\" stroke=\"%s\" fill=\"none\" stroke-dasharray=\"4\"/>", cx, cy, distance, _candidate_color);
     end_timed_group(file);
 }
@@ -227,7 +227,7 @@ int main(int argc, const char **argv) {
     }
     size_t write_pos = 0;
     size_t end_write_pos = DIMENSIONS * _max_points;
-    size_t cur_frame = 1;
+    size_t cur_frame = 0;
 
     FILE *f = fopen(_out_path, "w");
     if (NULL == f) {

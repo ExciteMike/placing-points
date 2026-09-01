@@ -143,16 +143,16 @@
           </div>
 
           <h3>Dart Throwing</h3>
-          <p>We can just "throw darts" at the region and use those points. By this I mean that for each coordinate of a point, we just take a uniform random variable scaled to match the size of the region. This generates a white noise distribution with the clumpings and gapping problems. But if we consider the points to have a radius and reject darts that get too close to prior darts, </p>
+          <p>We can just "throw darts" at the region and use those points. By this I mean that for each coordinate of a point, we just take a uniform random variable scaled to match the size of the region. This generates a white noise distribution with the clumpings and gapping problems as seen at the top of this article. But if we reject darts that get within some radius of other darts, the same process gives us much better results, just much slower.</p>
           <div class="threecolumns">
             <figure>
-              <img src=".svg" alt="Dart throwing animation"/>
+              <img src="dart_throwing.svg" alt="Dart throwing animation"/>
               <figcaption>Animation illustrating a dart throwing approach</figcaption>
             </figure>
           </div>
 
           <h3>Mitchell's Best Candidate</h3>
-          <p>The Mitchell's Best Candidate approach is to improve on dart throwing by throwing <em>even more</em> darts and rejecting the ones that would cause the most clumping. After the first dart, each time instead of just one we throw a number of darts, find which one is furthest from any of the previous darts, and reject the others in that batch. This can get quite slow as the number of points to distance-test against gets large. Depending on how many darts you are willing to throw at once and how slow you are willing to let it get, it does produce good results.</p>
+          <p>The Mitchell's Best Candidate approach is a variation of dart throwing. Instead of throwing darts one at a time and rejecting, we throw a batch of them and them keep only the bst one of the batch. By "best" here we mean farthest from all the previous darts we kept.. This can get quite slow as the number of points to distance-test against gets large. Depending on how many darts you are willing to throw at once and how slow you are willing to let it get, it does produce good results.</p>
           <div class="threecolumns">
             <figure>
               <img src="mitchells_best.svg" alt="Animation illustrating Mitchell's Best Candidate."/>

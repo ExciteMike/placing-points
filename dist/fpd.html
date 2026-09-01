@@ -1,5 +1,6 @@
 <html>
   <head>
+    <meta charset="UTF-8">
     <title>Placing Points - Fast Poisson Disk</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -26,7 +27,7 @@
         max-width: 800px;
         margin-left: auto;
         margin-right: auto;
-        padding: 8px;
+        padding: 12px;
         border: 1px solid #ccc;
         border-radius: 4px;
         background-color: #f9f9f9;
@@ -126,7 +127,14 @@
           <figcaption>Animation illustrating jittered grid points starting from a staggered grid.</figcaption>
         </figure>
       </threecolumns>
-      <h3>Dart Throwing</h3>
+      <h3>Mitchell's Best Candidate</h3>
+      <p>Since the problem with pure random numbers was clumping, we can try to work around it by insead of throwing just one at a time, throwing many, and then only keeping the one from each batch is furthest from all the others. This can get get quite slow as the number of points to distance-test against gets large, but it produces pretty godo results and is easy to implement.</p>
+      <threecolumns>
+        <figure>
+          <img src=".svg"/>
+          <figcaption>Animation illustrating jittered grid points.</figcaption>
+        </figure>
+      </threecolumns>
       <p>The simplest thing we could do and still solve the problem would probably be to generate points in the straightforward white noise way and then remove the ones that are making it un-blue-noisy. As you can probably see, that would be making the computer do a lot of extra work, but it does get us very close to one common way of approaching the problem</p>
       <p>To efficiently come up with our own evenly-spaced-but-random points, we'll use a technique called Fast Poisson Disk Sampling, which I believe comes from <cite><a href="./bridson-siggraph07-poissondisk.pdf">a SIGGRAPH paper by Robert Bridson</a></cite>. The defining property of a Poisson disk sampling is that the points are distributed with no two closer together than some chosen minimum distance. At a high level, Bridson's algorithm works by first picking a random seed point, then for future points, it steps at least a minimum distance away in a random direction and tests to see if that new point is not too close to one we already have. This is made efficient by linking points to an underlying grid that lets us quickly determine which points could be near the candidate point.</p>
       <h2>The Algorithm</h2>

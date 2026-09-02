@@ -1,16 +1,21 @@
 <!DOCTYPE html><html lang="en">
   <head>
     <meta charset="UTF-8">
-    <title>Placing Points - Fast Poisson Disk</title>
+    <title>Placing Points ▸ Fast Poisson Disk</title>
     <style>
+      @font-face{
+        font-family:'Noto Serif';
+        src: url('NotoSerif-VariableFont_wdth,wght.ttf');
+      }
       html, body {
-        font-family: sans-serif;
+        font-family: 'Noto Serif', sans-serif;
         font-size: 16px;
         font-optical-sizing: auto;
         margin: 0;
         padding: 0;
         height: 100%;
         background-color: #eee;
+        letter-spacing: +0.25px;
       }
       body {
         padding: 8px 0 8px 0;
@@ -32,15 +37,15 @@
         background: #eee;
         color: #333;
       }
-      figcaption, h1, h2 {
-        font-family: 'Georgia','Times',serif;
-      }
-      h1 { font-size: 32px; }
-      h2 { font-size: 24px; font-weight: 400; }
-      h3, h4, h5, h6 { font-size: 20px; font-weight:700; }
+      h1 { font-size: 40px; margin: 10px 0 5px 0; }
+      h2 { font-size: 30px; font-weight: 400; }
+      h3, h4, h5, h6 { font-size: 25px; font-weight:700; }
       figcaption, .byline, .dateline {
         font-size:14px;
+      }
+      .byline, .dateline {
         font-weight: lighter;
+        letter-spacing: +2px;
       }
       code {
         background-color: #eee;
@@ -52,45 +57,18 @@
         display: grid;
         grid-template-columns: 1fr 1fr 1fr;
         gap: 8px;
-        figure {margin: 0};
+        figure { margin:0; }
       }
-      aside {
-        max-width: 33%;
-        float: right;
-        padding-left: 16px;
-        margin-left: 8px;
-        box-shadow: inset 5px 0 10px -5px slategray;
-        font-style: italic;
-        color: slategray;
-        background-color: #f9f9f9;
-        z-index: 10;
-      }
-      .asideclear { clear: right; }
     </style>
   </head>
   <body>
     <main>
       <article>
-        <h1>Placing Points</h1>
+        <h1>Placing Points ▸ Fast Poisson Disk</h1>
         <div class="byline">By Mike Meyer</div>
         <div class="dateline">2026-09-INSERT DATE</div>
-        <aside>
-          <p>Formatting test: An example of an aside.</p>
-          <p>Alice was beginning to get very tired of sitting by her sister on the bank, and of having nothing to do: once or twice she had peeped into the book her sister was reading, but it had no pictures or conversations in it, “and what is the use of a book,” thought Alice “without pictures or conversations?”</p>
-          <p>So she was considering in her own mind (as well as she could, for the hot day made her feel very sleepy and stupid), whether the pleasure of making a daisy-chain would be worth the trouble of getting up and picking the daisies, when suddenly a White Rabbit with pink eyes ran close by her.</p>
-        </aside>
-        <p>In videogames and computer graphics, we often want to distribute something throughout a region. It may be placing trees in a virtual forest, or your renderer simulating light rays into the world to determine pixel color. In cases like these, the most straightforward approaches have some big drawbacks! If we simply choose points in a regular grid, it will look artificial and will produce undesirable <a href="https://en.wikipedia.org/wiki/Aliasing">aliasing</a> effects and <a href="https://en.wikipedia.org/wiki/Moir%C3%A9_pattern">Moiré patterns</a> based on distance and viewing angle. We may then try a "dart-throwing" method and use our random number generator to pick coordinates. But this too causes problems. It will tend to produce some regions with dense clusters of points and leave large gaps between those clusters. So we need a balance between the chaos of pure randomness and the unnatural order of regular spacing, keeping the points looking evenly spaced when viewed at large scales, but not predictable on smaller scales. Distributions meeting those criteria are sometimes called blue noise. Trees distribute themselves this way due to competition for sunlight, and the receptors in our retinas (outside of the fovea and blind spot) are distributed in this way to prevent aliasing effects in our vision.</p>
-        <div class="asideclear"></div>
-        <button type="button" command="show-modal" commandfor="example-modal">Test Modal</button>
-        <dialog id="example-modal">
-          <p>Example modal content</p>
-          <button type="button" command="close" commandfor="example-modal">Close</button>
-        </dialog>
-        <button type="button" popovertarget="example-dialog">Test non-modal</button>
-        <dialog id="example-dialog" popover>
-          <p>Example nonmodal content</p>
-          <button type="button" popovertarget="example-dialog" popovertargetaction="hide">Close</button>
-        </dialog>
+        <p>In videogames and computer graphics, we often get into situations where we want to distribute something throughout a region. Things like placing trees in a virtual forest or a raytracer shooting rays into the world to determine pixel color. In cases like these, the most straightforward approaches have some big drawbacks! A regular grid, it will look artificial and will produce undesirable <a href="https://en.wikipedia.org/wiki/Aliasing">aliasing</a> effects and <a href="https://en.wikipedia.org/wiki/Moir%C3%A9_pattern">Moiré patterns</a>. Metaphorically throwing darts at the region using uniform random numbers will yield produce some regions with dense clusters and others with large gaps.</p>
+        <p>What we need is a balance between the chaos of pure randomness and the unnatural order of regular spacing, keeping the points looking evenly spaced when viewed at large scales, but not predictable on smaller scales. Trees wind up distributed this way due to competition for sunlight, and the receptors in our retinas (outside of the fovea and blind spot) are distributed in this way to prevent aliasing effects in our vision. Distributions meeting those criteria are sometimes called blue noise.</p>
         <div class="threecolumns">
           <figure>
             <img src="intro_grid.svg" alt="250 Points distributed on a uniform grid"/>
@@ -107,7 +85,7 @@
         </div>
         <section>
           <h2>Colors of Noise</h2>
-          <p>The term "blue noise" comes from signal processing and comes up in electronics and audio-related fields. They are making an analogy with visible light to characterize noisy signals based on how much different frequencies are contributing to it. In audio, we experience this as the pitch and timbre of a sound, and in light we perceive it as color. White noise is probably the most familiar "color of noise". It is so named because, like white light, it is made up of a balance of many different frequencies. When the light we see contains more of the lower frequencies of light, we perceive it as redder, and when the higher frequencies dominate, we see it as bluer. So blue noise is noise that favors higher frequences.</p>
+          <p>The term "blue noise" comes from signal processing in electronics and audio-related fields. They are making an analogy with visible light to characterize noisy signals based on how much different frequencies are contributing to it. In audio, we experience this as the pitch and timbre of a sound, and in light we perceive it as color. White noise is probably the most familiar "color of noise". It is so named because, like white light, it is made up of a balance of many different frequencies. When the light we see contains more of the lower frequencies of light, we perceive it as redder, and when the higher frequencies dominate, we see it as bluer. So blue noise is noise that favors higher frequences.</p>
           <div class="threecolumns">
             <figure>
               <img src="colors_of_noise_white.svg" alt="White noise (top) and its flat power spectrum (bottom)"/>
@@ -161,15 +139,15 @@
           </div>
 
           <h3>More exotic approaches</h3>
-          <p>People have come up with many ways to do this with various advantages and disadvantages. Tile based methods make a library of small areas of blue noise that they then combine into large ones. An aperiodic tilings such as Penrose tilings can be used as the basis for the points. Points generated through other means can be relaxed into a smoother distribution.</p>
+          <p>People have come up with many ways to do this with various advantages and disadvantages. Tile based methods make a library of small areas of blue noise that they then combine into large ones. An aperiodic tilings such as Penrose tilings can be used as the basis for the points. Points generated through other means can be relaxed into a smoother distribution. I'm sure there are more that I didn't think of!</p>
           <div class="threecolumns">
             <figure>
-              <img src="tile_based.svg" alt="."/>
-              <figcaption>.</figcaption>
+              <img src="tile_based.svg" alt="A tile-based approach."/>
+              <figcaption>A tile-based approach.</figcaption>
             </figure>
             <figure>
-              <img src=".svg" alt="."/>
-              <figcaption>.</figcaption>
+              <img src=".svg" alt="Blue noise based on an aperiodic tiling."/>
+              <figcaption>Blue noise based on an aperiodic tiling.</figcaption>
             </figure>
             <figure>
               <img src=".svg" alt="."/>

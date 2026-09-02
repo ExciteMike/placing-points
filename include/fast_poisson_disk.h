@@ -192,7 +192,7 @@ float fpd_rand(float max) {
 /* Helper for fast_poisson_disk - Uniformly select a random point in an annulus
    around another point */
 void fpd_random_radius(float cx, float cy, float min_r, float max_r, float *out_x, float *out_y) {
-    float TAU = 2.f * PI;
+    float TAU = 2.f * 3.14159265358979323846;
     float min_r_sq = min_r*min_r;
     float max_r_sq = max_r*max_r;
     float r_sq = min_r_sq + fpd_rand(max_r_sq - min_r_sq);

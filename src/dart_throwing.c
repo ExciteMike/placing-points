@@ -1,4 +1,4 @@
-/* generate svgs to demonstrate the Mitchell's Best Candidate */
+/* generate svgs to demonstrate a dart-throwing approach to blue noise */
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -7,7 +7,7 @@
 #define WRITE_SVG_IMPLEMENTATION
 #include "write_svg.h"
 
-static const float WIDTH    = 320.f; /* width of the generated SVG. */
+static const float WIDTH    = 240.f; /* width of the generated SVG. */
 static const float HEIGHT   = 180.f; /* height of the generated SVG. */
 static const float POINT_RADIUS = 4.f; /* radius of the circle we draw to indicate the points */
 static const size_t MAX_POINTS = 120; /* maximum allowed number of points */

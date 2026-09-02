@@ -1,4 +1,4 @@
-/* generate svgs to demonstrate the Mitchell's Best Candidate */
+/* generates animated svg demonstrating a tile-based approach to blue noise generation */
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -12,7 +12,7 @@
 #include "fast_poisson_disk.h"
 #undef FAST_POISSON_DISK_IMPLEMENTATION
 
-static const float WIDTH = 320.f;
+static const float WIDTH = 240.f;
 static const float HEIGHT = 180.f;
 static const float MIN_DISTANCE = 10.f;
 static const size_t MAX_FPD_TRIES = 30;
@@ -23,8 +23,9 @@ static const char* POINT_COLOR = "blue";
 static const char *OUT_PATH = "./dist/tile_based.svg";
 static const char* BACKGROUND_COLOR = "#f9f9f9";
 static const char* BORDER_COLOR = "dimgray";
-static const float ANIM_DURATION = 30.f;
-static const size_t EXTRA_FRAMES = 30;
+static const float ANIM_DURATION = 15.f;
+static const size_t TILE_TICKS_OF_MOVEMENT = 2;
+static const size_t WAIT_TICKS = 80;
 
 #define DIMENSIONS (2)
 #define POINTS_PER_TILE (6)
@@ -62,8 +63,8 @@ int main(int argc, const char **argv) {
     size_t n_rows = (size_t)(ceilf(HEIGHT / TILE_SIZE));
     size_t n_columns = (size_t)(ceilf(WIDTH / TILE_SIZE));
     size_t num_tiles_to_place = n_rows * n_columns;
-    size_t cur_frame = 0;
-    size_t n_frames = num_tiles_to_place - NUM_TILE_TYPES + 1 + EXTRA_FRAMES;
+    size_t cur_tick = 0;
+    size_t n_ticks = num_tiles_to_place - NUM_TILE_TYPES + TILE_TICKS_OF_MOVEMENT + WAIT_TICKS;
 
     FILE *f = fopen(OUT_PATH, "w");
     if (NULL == f) {
@@ -75,14 +76,16 @@ int main(int argc, const char **argv) {
     init_tiles(f);
 
     for (size_t i=NUM_TILE_TYPES;i<num_tiles_to_place;++i) {
-        cur_frame++;
+        cur_tick++;
         int row = i / n_columns;
         int column = i % n_columns;
         int tile_choice = rand() % NUM_TILE_TYPES;
         float tile_move_x = (float)(column - tile_choice) * TILE_SIZE;
         float tile_move_y = (float)row * TILE_SIZE;
-        int move_start_pct = (int)(100.f * (float)(cur_frame) / (float)(n_frames));
-        int move_end_pct = (int)(100.f * (float)(cur_frame+1) / (float)(n_frames));
+        int move_start_tick = n_ticks-WAIT_TICKS-cur_tick;
+        int move_end_tick = move_start_tick+TILE_TICKS_OF_MOVEMENT;
+        int move_start_pct = (int)(100.f * (float)(move_start_tick) / (float)(n_ticks));
+        int move_end_pct = (int)(100.f * (float)(move_end_tick) / (float)(n_ticks));
         if (move_end_pct == move_start_pct) {
             move_end_pct++;
         }

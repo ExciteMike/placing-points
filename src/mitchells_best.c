@@ -12,7 +12,7 @@
 #define COLIOP_IMPLEMENTATION
 #include "coliop.h"
 
-static float _width    = 320.f; /* width of the generated SVG. may be overridden with a command-line arg */
+static float _width    = 240.f; /* width of the generated SVG. may be overridden with a command-line arg */
 static float _height   = 180.f; /* height of the generated SVG. may be overridden with a command-line arg */
 static float _point_radius = 4.f; /* radius of the circle we draw to indicate the points */
 static int _max_points = 45;   /* maximum allowed number of points */

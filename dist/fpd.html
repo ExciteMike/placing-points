@@ -1,7 +1,7 @@
 <!DOCTYPE html><html lang="en">
   <head>
     <meta charset="UTF-8">
-    <title>Placing Points ▸ Fast Poisson Disk</title>
+    <title>Placing Points: Fast Poisson Disk</title>
     <style>
       @font-face{
         font-family:'Noto Serif';
@@ -39,13 +39,12 @@
       }
       h1 { font-size: 40px; margin: 10px 0 5px 0; }
       h2 { font-size: 30px; font-weight: 400; }
-      h3, h4, h5, h6 { font-size: 25px; font-weight:700; }
+      h3, h4, h5, h6 { font-size: 25px; font-weight:400; }
       figcaption, .byline, .dateline {
         font-size:14px;
       }
       .byline, .dateline {
-        font-weight: lighter;
-        letter-spacing: +2px;
+        color: slategray;
       }
       code {
         background-color: #eee;
@@ -59,56 +58,110 @@
         gap: 8px;
         figure { margin:0; }
       }
+      .references {
+        ol {
+            font-size: 12px;
+            letter-spacing: -0.5px;
+        }
+      }
+      #toc {
+        max-width: 33%;
+        float: right;
+        border: 1px solid #ccc;
+        color: slategray;
+        padding: 8px;
+        margin-left: 8px;
+        h2 {
+            margin:0;
+            font-size: 16px;
+        }
+        a {
+            color: slategray;
+            text-decoration: none;
+        }
+        ol {
+            margin:8px 0 0 0;
+            padding-left: 16px;
+        }
+        li ol {
+            margin: 0;
+        }
+      }
+      section > h2:nth-child(1) > a {
+        color: #ccc;
+        text-decoration: none;
+      }
+      dfn {
+        border-bottom: 1px dotted black;
+      }
     </style>
   </head>
   <body>
     <main>
       <article>
-        <h1>Placing Points ▸ Fast Poisson Disk</h1>
-        <div class="byline">By Mike Meyer</div>
-        <div class="dateline">2026-09-INSERT DATE</div>
-        <p>In videogames and computer graphics, we often get into situations where we want to distribute something throughout a region. Things like placing trees in a virtual forest or a raytracer shooting rays into the world to determine pixel color. In cases like these, the most straightforward approaches have some big drawbacks! A regular grid, it will look artificial and will produce undesirable <a href="https://en.wikipedia.org/wiki/Aliasing">aliasing</a> effects and <a href="https://en.wikipedia.org/wiki/Moir%C3%A9_pattern">Moiré patterns</a>. Metaphorically throwing darts at the region using uniform random numbers will yield produce some regions with dense clusters and others with large gaps.</p>
-        <p>What we need is a balance between the chaos of pure randomness and the unnatural order of regular spacing, keeping the points looking evenly spaced when viewed at large scales, but not predictable on smaller scales. Trees wind up distributed this way due to competition for sunlight, and the receptors in our retinas (outside of the fovea and blind spot) are distributed in this way to prevent aliasing effects in our vision. Distributions meeting those criteria are sometimes called blue noise.</p>
-        <div class="threecolumns">
-          <figure>
-            <img src="intro_grid.svg" alt="250 Points distributed on a uniform grid"/>
-            <figcaption>250 Points distributed on a uniform grid</figcaption>
-          </figure>
-          <figure>
-            <img src="intro_white.svg" alt="250 Points distributed randomly"/>
-            <figcaption>250 Points distributed randomly</figcaption>
-          </figure>
-          <figure>
-            <img src="intro_blue.svg" alt="Blue noise (250 points)"/>
-            <figcaption>Blue noise (250 points)</figcaption>
-          </figure>
+        <header>
+            <h1>Placing Points: Fast Poisson Disk</h1>
+            <div class="byline">By Mike Meyer</div>
+            <div class="dateline">2026-09-INSERT DATE</div>
+        </header>
+        <div id="toc">
+            <h2>Contents</h2>
+            <ol>
+                <li><a href="#motivation">Motivation</a></li>
+                <li><a href="#colors-of-noise">Colors of Noise</a></li>
+                <li><a href="#possible-approaches">Possible Approaches</a>
+                    <ol>
+                        <a href="#jittered-grid">Jittered Grid</a>
+                    </ol>
+                </li>
+            </ol>
         </div>
         <section>
-          <h2>Colors of Noise</h2>
-          <p>The term "blue noise" comes from signal processing in electronics and audio-related fields. They are making an analogy with visible light to characterize noisy signals based on how much different frequencies are contributing to it. In audio, we experience this as the pitch and timbre of a sound, and in light we perceive it as color. White noise is probably the most familiar "color of noise". It is so named because, like white light, it is made up of a balance of many different frequencies. When the light we see contains more of the lower frequencies of light, we perceive it as redder, and when the higher frequencies dominate, we see it as bluer. So blue noise is noise that favors higher frequences.</p>
+            <h2><a id="motivation"></a>Motivation</h2>
+            <p>In videogames and computer graphics, we often get into situations where we want to distribute something throughout a region. Things like placing trees in a virtual forest or a raytracer casting out rays to determine pixel color. In cases like these, the most straightforward approaches have some big drawbacks! A regular grid looks artificial and produces undesirable <a href="https://en.wikipedia.org/wiki/Aliasing">aliasing</a> effects and <a href="https://en.wikipedia.org/wiki/Moir%C3%A9_pattern">Moiré patterns</a>. Metaphorically throwing darts at the region using uniform random numbers will produce some regions with dense clusters and others with large gaps.</p>
+            <p>What we need is a balance between the chaos of pure randomness and the unnatural order of regular spacing: the points should look evenly spaced when viewed at large scales, but not predictable at small scales. Distributions meeting those criteria are sometimes called "blue noise."</p>
+            <div class="threecolumns">
+              <figure>
+                <img src="intro_grid.svg" alt="250 Points distributed on a uniform grid"/>
+                <figcaption>250 Points distributed on a uniform grid</figcaption>
+              </figure>
+              <figure>
+                <img src="intro_white.svg" alt="250 Points distributed randomly"/>
+                <figcaption>250 Points distributed randomly</figcaption>
+              </figure>
+              <figure>
+                <img src="intro_blue.svg" alt="Blue noise (250 points)"/>
+                <figcaption>Blue noise (250 points)</figcaption>
+              </figure>
+            </div>
+        </section>
+        <section>
+          <h2><a id="colors-of-noise"></a>Colors of Noise</h2>
+          <p>The term "blue noise" comes from signal processing and from electronics and audio-related fields. The name is an analogy with visible light: a convenient way to characterize noisy signals according to how much of the signal's power is at different frequencies. In audio, we experience this as pitch and timbre; in light, we perceive it as color.</p>
+          <p>White noise is probably the most familiar "color of noise". It is so named because, like white light, it has an even balance of frequencies. If instead more low-frequency light enters our eye, we perceive a redder color. When the higher frequencies dominate, we perceive it as bluer.</p>
           <div class="threecolumns">
             <figure>
               <img src="colors_of_noise_white.svg" alt="White noise (top) and its flat power spectrum (bottom)"/>
-              <figcaption>White noise (top) and its flat power spectrum (bottom)</figcaption>
+              <figcaption>White noise (top) and its flat power spectrum (bottom).</figcaption>
             </figure>
             <figure>
               <img src="colors_of_noise_blue.svg" alt="Blue noise (top) and its power spectrum (bottom) which favors higher frequencies"/>
-              <figcaption>Blue noise (top) and its power spectrum (bottom) which favors higher frequencies</figcaption>
+              <figcaption>Blue noise (top) and its power spectrum (bottom), which favors higher frequencies.</figcaption>
             </figure>
             <figure>
               <img src="colors_of_noise_red.svg" alt="Red noise AKA Brownian noise (top) and its power spectrum (bottom) which favors lower frequencies"/>
-              <figcaption>Red noise AKA Brownian noise (top) and its power spectrum (bottom) which favors lower frequencies</figcaption>
+              <figcaption>Red noise AKA Brownian noise (top) and its power spectrum (bottom), which favors lower frequencies.</figcaption>
             </figure>
           </div>
-          <p>If it seems odd to think of frequencies and power spectra when you are trying to plant some virtual trees, you could think of it this way: within the generated forest, we want trees to be roughly evenly spaced, with no large region of our forest noticeably more dense than another, so we want to eliminate low-frequency noise. At the same time, we want minimal correlation between tree positions. We can obtain that with high-frequency noise.</p>
+          <p>It might seem odd to think of frequencies and power spectra when we are trying to plant some virtual trees, but it gives us a way to formally define the behavior we're looking for and measure how well we achieve it. Within our generated forest, we want a relatively even density of trees, with no large areas of the forest looking much different compared to another large area. That means we want lower power at low frequencies. And at the same time, we want to prevent trees from occurring too close together. That tells us that we want higher power at higher frequencies. Blue noise!</p>
         </section>
         <section>
-          <h2>Possible Approaches</h2>
-          <p>For those familiar with the concept, all that stuff above talking about frequencies might suggest using a discrete Fourier transform! We could take our desired spectrum-domain behavior, generate random values in the frequency domain based on that shape, and then use the inverse Fourier transform to construct the sample data that would generate it. That is how I created the graphs above! It's great for one-dimensional values like the line heights in those images, but I haven't yet figured out how to properly extend that approach to more dimensions, and it definitely gets into heavier math than I'd like to do for this article. So we are going to look at some other methods.</p>
-          <p>The approach I am going to go into detail about here is usually referred to as Fast Poisson Disk Sampling, from the title of a <cite><a href="./bridson-siggraph07-poissondisk.pdf">SIGGRAPH paper by Robert Bridson</a></cite>. I'll mention a few others first, though because they are interesting in their own right.</p>
+          <h2><a id="possible-approaches"></a>Possible Approaches</h2>
+          <p>For those familiar with the concept, this discussion of frequencies might suggest using a discrete Fourier transform! We could take our desired frequency-domain behavior, generate random values in the frequency domain based on that shape, and then use the inverse Fourier transform to construct the sample data that would generate it. That is how I created the graphs above! This works well for the one-dimensional case in the figures above, but I haven't yet figured out how to extend that approach to more dimensions. It would also mean diving into more mathematics than I'd prefer to for this particular article, so we'll look at some other methods.</p>
+          <p>The approach I am going to go into most detail about here and the one I would most often recommend is referred to as Fast Poisson Disk Sampling, from the title of a <cite><a href="./bridson-siggraph07-poissondisk.pdf">SIGGRAPH paper by Robert Bridson</a></cite>. I'll mention a few others first, though, because they are interesting in their own right.</p>
 
-          <h3>Jittered Grid</h3>
-          <p>In a way, a regular grid is actually pretty close to what we want. The points are very evenly spaced, it's just the way they are correlated that needs fixing. So what if we take the points on that grid, and randomly push them around a bit? Depending on the scale we use for that "jittering", we can tradeoff between more clumping or more grid-aligned correlations, but improving one hurts the other, and may require some cleverness in how you jitter if isotropy is a concern. It is a very fast approach, though, and may be close enough for many use cases!</p>
+          <h3><a id="jittered-grid"></a>Jittered Grid</h3>
+          <p>In a way, a regular grid is actually pretty close to what we want. The points are very evenly spaced; this problem is that they are <em>too</em> evenly spaced. What if we took the points on that grid and randomly pushed them around a bit? With a large jitter, we increase clustering. With a small jitter, we keep the regularity and <dfn title="non-uniformity in different directions">anisotropy</dfn> of the original grid. One must come at the expense of the other with this approach. It is very fast, though, and may be close enough for many use cases!</p>
           <div class="threecolumns">
             <figure>
               <img src="jittered_grid_square.svg" alt="Animation illustrating jittered grid points."/>
@@ -121,16 +174,16 @@
           </div>
 
           <h3>Dart Throwing</h3>
-          <p>We can just "throw darts" at the region and use those points. By this I mean that for each coordinate of a point, we just take a uniform random variable scaled to match the size of the region. This generates a white noise distribution with the clumpings and gapping problems as seen at the top of this article. But if we reject darts that get within some radius of other darts, the same process gives us much better results, just much slower.</p>
+          <p>We can just "throw darts" at the region and use those points. By which I mean that for each coordinate of a point, we just take a uniform random variable scaled to match the size of the region. This generates a white noise distribution with the clumping and gapping problems as seen at the top of this article. But if we reject darts that get within some radius of other darts, the revised process gives us much better results, at the cost of needing to throw very many more darts, depending on how dense the packing we need is relative to the radius.</p>
           <div class="threecolumns">
             <figure>
               <img src="dart_throwing.svg" alt="Dart throwing animation"/>
-              <figcaption>Animation illustrating a dart throwing approach</figcaption>
+              <figcaption>Animation illustrating a dart throwing approach.</figcaption>
             </figure>
           </div>
 
           <h3>Mitchell's Best Candidate</h3>
-          <p>The Mitchell's Best Candidate approach is a variation of dart throwing. Instead of throwing darts one at a time and rejecting, we throw a batch of them and them keep only the bst one of the batch. By "best" here we mean farthest from all the previous darts we kept.. This can get quite slow as the number of points to distance-test against gets large. Depending on how many darts you are willing to throw at once and how slow you are willing to let it get, it does produce good results.</p>
+          <p>The Mitchell's Best Candidate approach is a variation of dart throwing. Instead of throwing darts one at a time and rejecting them, we throw in batches and keep only the best dart of each batch. "Best" in this case means the one that is farthest from all previously accepted points. This can become quite slow as the number of accepted points grows, but it does produce good results.</p>
           <div class="threecolumns">
             <figure>
               <img src="mitchells_best.svg" alt="Animation illustrating Mitchell's Best Candidate."/>
@@ -138,31 +191,53 @@
             </figure>
           </div>
 
-          <h3>More exotic approaches</h3>
-          <p>People have come up with many ways to do this with various advantages and disadvantages. Tile based methods make a library of small areas of blue noise that they then combine into large ones. An aperiodic tilings such as Penrose tilings can be used as the basis for the points. Points generated through other means can be relaxed into a smoother distribution. I'm sure there are more that I didn't think of!</p>
+          <h3>More Exotic Approaches</h3>
+          <p>People have come up with many ways to do this with various advantages and disadvantages. Tile-based methods make a library of smaller distributions of blue noise then combine them to fill larger regions. An aperiodic tiling such as Penrose tilings can be used as the basis for the points. Points generated by other methods can be relaxed to produce a smoother distribution. I'm sure there are more that I didn't think of!</p>
           <div class="threecolumns">
             <figure>
               <img src="tile_based.svg" alt="A simplistic tile-based approach."/>
               <figcaption>A simplistic tile-based approach.</figcaption>
             </figure>
             <figure>
-              <img src=".svg" alt="Blue noise based on an aperiodic tiling."/>
-              <figcaption>Blue noise based on an aperiodic tiling.</figcaption>
+              <img src=".svg" alt="A distribution based on an aperiodic tiling."/>
+              <figcaption>A distribution based on an aperiodic tiling.</figcaption>
             </figure>
             <figure>
               <img src=".svg" alt="."/>
-              <figcaption>.</figcaption>
+              <figcaption>A distribution based on relaxing a less-optimal distribution.</figcaption>
             </figure>
           </div>
         </section>
         <section>
           <h2>Fast Poisson Disk Sampling</h2>
-          <p>The fast Poisson disk method from <cite><a href="./bridson-siggraph07-poissondisk.pdf">Bridson's paper</a></cite> seems to have become the most common approach. It is uses a clever trick to make sure its points have a minimum distance between them, while still operating in linear time (in the number of points generated). And it produces high-quality results.</p>
-          <p>At a high level, the algorithm works by first picking a random seed point, then for future points, it steps at least a minimum distance away in a random direction and tests to see if that new point is not too close to one we already have. This is made efficient by dividing space into a grid that lets us quickly determine which points could be near the candidate point, and by keeping track of which points are still good for using as the basis of future ones as space fills up.</p>
+          <p>The fast Poisson disk method from <cite><a href="./bridson-siggraph07-poissondisk.pdf">Bridson's paper</a></cite> seems to have become the most common approach. It uses a couple of clever tricks to operate in linear time (in the number of points generated) and still produce high-quality results.</p>
+          <p>At a high level, the process starts from one arbitrary seed point in the region. Future points are then generated by testing candidate points chosen from an <dfn title="an annulus is the &quot;ring&quot;-shaped region bounded by two concentric circles">annulus</dfn> around previously accepted points. It continues until the region gets too crowded to find more.</p>
+          <p>There are two tricks to make this process fast. The region is divided into a grid that allows the distance testing to consider only very few points. It also tracks a list of "active" points that can still serve as the basis for future candidates, removing points from the list as the space around them fills.</p>
+          <p>Bridson's algorithm works in any number of dimensions, but for simplicity I present it here in only two.</p>
           <h3>Inputs to the Algorithm</h3>
-          <p>Our fast Poisson disk function will do its thing based on: the size of the area/volume to place things in, a minimum distance between the generated points, a maximum number of points to generate, and an additional tunable number, <code>max_tries</code>, that will make more sense later, but essentially controls how hard it works to fill the space around a generated point before it gives up on placing more near it. 30 is a typical value.
+          <p>Our fast Poisson disk function takes the following inputs:
+            <dl>
+                <dt><code>width</code>, <code>height</code></dt>
+                <dd>The size of the region.</dd>
+                <dt><code>min_dist</code></dt>
+                <dd>The minimum allowed distance between points.</dd>
+                <dt><code>max_points</code></dt>
+                <dd>An upper limit on the number of generated points.</dd>
+                <dt><code>max_tries</code></dt>
+                <dd>A maximum number of consecutive candidate rejections before a point is removed from the active list. 30 is a common value for this parameter.</dd>
+            </dl>
           </p>
-          <p>Bridson's algorithm works in any number of dimensions, but I am presenting it here in only two dimensions for simplicity's sake.</p>
+          <h3>TODO</h3>
+          <ul>
+            <li>ToC and heading anchors</li>
+            <li>Clearly state the problem at the start</li>
+            <li>Is the DFT tangent helpful at all?</li>
+            <li>The words forest and tree are in there too much</li>
+            <li>work in keywords like "procedural generation" "stochastic process" and idk what else</li>
+            <li>add a bio</li>
+            <li>make explicit that it is a simplified explanation for educational purposes</li>
+            <li>link to papers and other articles related to it</li>
+          </ul>
           TODO: code snippet of function signature and image of the empty square
   ## Setting Up the Data Structures
 
@@ -188,10 +263,12 @@
   TODO: link to the github
   TODO: images with different settings
         </section>
-        <section>
+        <!-- <section class="references">
           <h2>References</h2>
-          <samp>Robert Bridson. 2007. Fast Poisson disk sampling in arbitrary dimensions. In ACM SIGGRAPH 2007 sketches (SIGGRAPH '07). Association for Computing Machinery, New York, NY, USA, 22–es. <a href="https://doi.org/10.1145/1278780.1278807">https://doi.org/10.1145/1278780.1278807</a></samp>
-        </section>
+          <ol>
+            <li><cite>Robert Bridson. 2007. Fast Poisson disk sampling in arbitrary dimensions. In ACM SIGGRAPH 2007 sketches (SIGGRAPH '07). Association for Computing Machinery, New York, NY, USA, 22–es. <a href="https://doi.org/10.1145/1278780.1278807">https://doi.org/10.1145/1278780.1278807</a></cite></li>
+          </ol>
+        </section> -->
       </article>
       <hr/>
       <section>

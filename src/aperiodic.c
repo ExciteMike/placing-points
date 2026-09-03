@@ -1,4 +1,11 @@
-/* generate svgs to demonstrate the Mitchell's Best Candidate */
+/*
+   Generate svg showing how a a blue-noise-like distribution can be constructed from an aperiodic tiling.
+   
+   It uses the spectre tiling from
+      Smith, D., Myers, J. S, Kaplan, C. S, & Goodman-Strauss, C. (2024). A chiral aperiodic monotile. Combinatorial Theory, 4(2). http://dx.doi.org/10.5070/C64264241
+   
+   Based on the Javascript implementation by those authors found at https://cs.uwaterloo.ca/~csk/spectre/spectre.js
+ */
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,9 +16,6 @@
 #include "write_svg.h"
 #undef WRITE_SVG_IMPLEMENTATION
 
-#define FAST_POISSON_DISK_IMPLEMENTATION
-#include "fast_poisson_disk.h"
-#undef FAST_POISSON_DISK_IMPLEMENTATION
 
 static const float WIDTH = 240.f;
 static const float HEIGHT = 180.f;
@@ -20,238 +24,372 @@ static const char* POINT_COLOR = "blue";
 static const char* SECONDARY_COLOR = "gray";
 static const char *OUT_PATH = "./dist/aperiodic.svg";
 static const char* BACKGROUND_COLOR = "#f9f9f9";
-static const float PI      = 3.14159265358979323846f;
 static const float PI_3    = 1.04719755119659774615f;
 static const float PI_6    = 0.52359877559829887307f;
-static const float SQRT3   = 1.73205080756887729352f;
-static const float SQRT3_2 = 0.86602540378443864676f;
-static const size_t N_ITERATIONS = 3;
+static const size_t N_ITERATIONS = 0;
 
-#define TILEBUFSIZE (64)
 
-typedef float Float2[2];
-typedef size_t Edge[2];
+/* types of tiles */
+typedef enum TileType {
+    TT_FIRST = 0,
+    TT_GAMMA = 0, /* aka the mystic */
+    TT_DELTA,
+    TT_THETA,
+    TT_LAMBDA,
+    TT_XI,
+    TT_PI,
+    TT_SIGMA,
+    TT_PHI,
+    TT_PSI,
+    TT_COUNT,
+    TT_END = TT_COUNT,
+    TT_INVALID = TT_END
+} TileType;
+
+
+/* point in 2d */
+typedef union Float2 {
+    float raw[2];
+    struct {
+        float x;
+        float y;
+    };
+} Float2;
+
+
+enum {N_SPECTRE_POINTS=14};
 
 /* spectre-tile polygon */
-Float2 SPECTRE_POINTS[14] = {
-    {0.f,                0.f},
-    {1.f,              0.f},
-    {1.5f,              -SQRT3_2},
-    {1.5+SQRT3_2, 0.5-SQRT3_2},
-    {1.5+SQRT3_2, 1.5-SQRT3_2},
-    {2.5+SQRT3_2, 1.5-SQRT3_2},
-    {3+SQRT3_2,   1.5},
-    {3.0,              2.0},
-    {3-SQRT3_2,   1.5},
-    {2.5-SQRT3_2, 1.5+SQRT3_2},
-    {1.5-SQRT3_2, 1.5+SQRT3_2},
-    {0.5-SQRT3_2, 1.5+SQRT3_2},
-    {-SQRT3_2,    1.5},
-    {0.0,              1.0}
+Float2 SPECTRE_POINTS[N_SPECTRE_POINTS] = {
+    {{0.f, 0.f}},
+    {{1.0f, 0.0f}},
+    {{1.5f, -0.8660254037844386f}},
+    {{2.366025403784439f, -0.36602540378443865f}},
+    {{2.366025403784439f, 0.6339745962155614f}},
+    {{3.366025403784439f, 0.6339745962155614f}},
+    {{3.866025403784439f, 1.5f}},
+    {{3.0f, 2.0f}},
+    {{2.133974596215561f, 1.5f}},
+    {{1.6339745962155614f, 2.3660254037844393f}},
+    {{0.6339745962155614f, 2.3660254037844393f}},
+    {{-0.3660254037844386f, 2.3660254037844393f}},
+    {{-0.866025403784439f, 1.5f}},
+    {{0.0f, 1.0f}},
 };
 
+
 /* indices into SPECTRE_POINTS */
-typedef Float2 Quad[4];
+typedef union Quad {
+    Float2 raw[4];
+    struct {
+        Float2 a;
+        Float2 b;
+        Float2 c;
+        Float2 d;
+    };
+} Quad;
 
-typedef float XForm[6];
-XForm IDENTITY = {1.f, 0.f, 0.f, 0.f, 1.f, 0.f};
 
-/* mapping between metatiles and transformations on them */
-typedef struct Geometry {
-    Quad *quad;
-    XForm *xform;
-} Geometry;
+/* affine transformations in a matrix representation */
+typedef union XForm {
+    float raw[6];
+    struct {
+        float r00;
+        float r01;
+        float x;
+        float r10;
+        float r11;
+        float y;
+    };
+    struct {
+        float m00;
+        float m01;
+        float m02;
+        float m10;
+        float m11;
+        float m12;
+    };
+} XForm;
+XForm IDENTITY = {{ 1.f, 0.f, 0.f, 0.f, 1.f, 0.f}};
+XForm FLIP     = {{-1.f, 0.f, 0.f, 0.f, 1.f, 0.f}};
 
-/* Metatiles */
-typedef struct MetaTile {
+
+/* information about a particular tile */
+typedef struct ChildTile {
+    struct Meta *meta;
+    XForm xform;
+} ChildTile;
+
+
+/* a tile that may be made up of other tiles */
+typedef struct Meta {
     Quad quad;
-    size_t n_subtiles;
-    XForm subtiles[2];
-} MetaTile;
+    ChildTile children[TT_COUNT];
+    size_t num_children;
+} Meta;
 
-/* indices into METATILES */
-typedef enum MetaTileIndex {
-    MTI_FIRST = 0,
-    MTI_GAMMA = 0,
-    MTI_GAMMA1,
-    MTI_GAMMA2,
-    MTI_DELTA,
-    MTI_THETA,
-    MTI_LAMBDA,
-    MTI_XI,
-    MTI_SIGMA,
-    MTI_PHI,
-    MTI_PSI,
-    MTI_COUNT = MTI_PSI,
-    MTI_END
-} MetaTileIndex;
 
-MetaTile METATILES[MTI_COUNT] = {0};
+/* rotation angle, starting quad point, target quad point */
+typedef struct XFormRule {
+    float angle;
+    size_t from_idx;
+    size_t to_idx;
+} XFormRule;
+
+
+/*
+   the tiles that can be produced from a tile, indexed by their type
+ 
+ 
+   TT_INVALID marks that that slot is unused
+ */
+typedef TileType SubsRule[TT_COUNT];
+
+/* substitution rules to use as we produce the tiling */
+static SubsRule SUBS_RULES[TT_COUNT] = {
+    {      TT_PI,   TT_DELTA, TT_INVALID,   TT_THETA,   TT_SIGMA,      TT_XI,     TT_PHI,   TT_GAMMA},
+    {      TT_XI,   TT_DELTA,      TT_XI,     TT_PHI,   TT_SIGMA,      TT_XI,     TT_PHI,   TT_GAMMA},
+    {     TT_PSI,   TT_DELTA,      TT_PI,     TT_PHI,   TT_SIGMA,      TT_PI,     TT_PHI,   TT_GAMMA},
+    {     TT_PSI,   TT_DELTA,      TT_XI,     TT_PHI,   TT_SIGMA,      TT_PI,     TT_PHI,   TT_GAMMA},
+    {     TT_PSI,   TT_DELTA,      TT_PI,     TT_PHI,   TT_SIGMA,      TT_PI,     TT_PHI,   TT_GAMMA},
+    {     TT_PSI,   TT_DELTA,      TT_XI,     TT_PHI,   TT_SIGMA,     TT_PSI,     TT_PHI,   TT_GAMMA},
+    {      TT_XI,   TT_DELTA,      TT_XI,     TT_PHI,   TT_SIGMA,     TT_PSI,  TT_LAMBDA,   TT_GAMMA},
+    {     TT_PSI,   TT_DELTA,     TT_PSI,     TT_PHI,   TT_SIGMA,      TT_PI,     TT_PHI,   TT_GAMMA},
+    {     TT_PSI,   TT_DELTA,     TT_PSI,     TT_PHI,   TT_SIGMA,     TT_PSI,     TT_PHI,   TT_GAMMA}
+};
+
+
+/*
+   Index 0 is not transformed, the others follow the transforms we will
+   generate from XFORMRULES
+ */
+enum {N_XFORMRULES = TT_COUNT - 1};
+
+
+/* transforms for the substituted tiles */
+static const XFormRule XFORMRULES[N_XFORMRULES] = {
+    {  PI_6, 3, 1},
+    {   0.f, 2, 0},
+    {  PI_6, 3, 1},
+    {  PI_6, 3, 1},
+    {   0.f, 2, 0},
+    {  PI_6, 3, 1},
+    { -PI_3, 3, 3},
+};
+
 
 /* build a translation transform */
-void mk_translation(Float2 v, XForm *dst) {
-    (*dst)[0] = 1;
-    (*dst)[1] = 0;
-    (*dst)[2] = v[0];
-    (*dst)[3] = 0;
-    (*dst)[4] = 1;
-    (*dst)[5] = v[1];
+void mk_translation(const Float2 p, XForm *dst) {
+    *dst = (XForm){{1.f, 0.f, p.x,
+                    0.f, 1.f, p.y}};
+}
+
+/* build a translation transform that turns p1 into p2 */
+void mk_translation_to(const Float2 p1, const Float2 p2, XForm *dst) {
+    Float2 p = {{p2.x-p1.x, p2.y-p1.y}};
+    mk_translation(p, dst);
 }
 
 /* build a rotate transform */
 void mk_rotation(float angle, XForm *dst) {
     float c = cosf(angle);
     float s = sinf(angle);
-    (*dst)[0] = c;
-    (*dst)[1] = -s;
-    (*dst)[2] = 0;
-    (*dst)[3] = s;
-    (*dst)[4] = c;
-    (*dst)[5] = 0;
+    *dst = (XForm){{  c, -s, 0.f,
+                    0.f,  s, 0.f}};
 }
 
 /* compose transformations */
-void mul(XForm *a, XForm *b, XForm *out) {
-    (*out)[0] = (*a)[0] * (*b)[0] + (*a)[1] * (*b)[3];
-    (*out)[1] = (*a)[0] * (*b)[1] + (*a)[1] * (*b)[4];
-    (*out)[2] = (*a)[0] * (*b)[2] + (*a)[1] * (*b)[5] + (*a)[2];
-    (*out)[3] = (*a)[3] * (*b)[0] + (*a)[4] * (*b)[3];
-    (*out)[4] = (*a)[3] * (*b)[1] + (*a)[4] * (*b)[4];
-    (*out)[5] = (*a)[3] * (*b)[2] + (*a)[4] * (*b)[5] + (*a)[5];
+void compose(XForm *a, XForm *b, XForm *out) {
+    *out = (XForm){{
+        a->m00 * b->m00 + a->m01 * b->m10,
+        a->m00 * b->m01 + a->m01 * b->m11,
+        a->m00 * b->m02 + a->m01 * b->m12 + a->m02,
+        a->m10 * b->m00 + a->m11 * b->m10,
+        a->m10 * b->m01 + a->m11 * b->m11,
+        a->m10 * b->m02 + a->m11 * b->m12 + a->m12
+    }};
 }
 
-/* build initial shape library */
-void init_meta_tiles(MetaTile *buf, size_t bufsize) {
-    if (bufsize < MTI_COUNT) {
-        fprintf(stderr, "insufficient space");
+/* apply a transformation to a point */
+Float2 xform_point(XForm *xform, const Float2 p) {
+    return (Float2) {{
+        xform->m00 * p.x + xform->m01 * p.y + xform->m02,
+        xform->m10 * p.x + xform->m11 * p.y + xform->m12
+    }};
+}
+
+/* apply a transformation to a point, modifying it in place */
+void xform_point_in_place(XForm *xform, Float2 *p) {
+    float x = p->x;
+    float y = p->y;
+    p->x = xform->m00 * x + xform->m01 * y + xform->m02;
+    p->y = xform->m10 * x + xform->m11 * y + xform->m12;
+}
+
+/* add a new tile to the tile type */
+void add_child(Meta *tc, Meta *meta, XForm *xform) {
+    if (tc->num_children >= TT_COUNT) {
+        fprintf(stderr, "added too many children");
         exit(1);
     }
+    tc->children[tc->num_children].meta = meta;
+    tc->children[tc->num_children].xform = *xform;
+    tc->num_children++;
+}
 
-    Quad quad_init;
-    memcpy(&(quad_init[ 0 ]), &(SPECTRE_POINTS[ 3 ]), sizeof(Float2));
-    memcpy(&(quad_init[ 1 ]), &(SPECTRE_POINTS[ 5 ]), sizeof(Float2));
-    memcpy(&(quad_init[ 2 ]), &(SPECTRE_POINTS[ 7 ]), sizeof(Float2));
-    memcpy(&(quad_init[ 3 ]), &(SPECTRE_POINTS[ 11 ]), sizeof(Float2));
-
-    for (size_t i=MTI_FIRST;i<MTI_END;++i) {
-        memcpy(&(METATILES[i]), &quad_init, sizeof(Quad));
-        METATILES[i].n_subtiles = 0;
+enum {TILES_CAPACITY=256};
+static Meta ALL_TILES[TILES_CAPACITY];
+static size_t num_tiles = 0;
+Meta* alloc_tiles(size_t request_size) {
+    size_t new_size = num_tiles + request_size;
+    if (num_tiles + request_size > TILES_CAPACITY) {
+        fprintf(stderr, "increase buffer size >=%lld", new_size);
+        exit(1);
     }
-    METATILES[MTI_GAMMA].n_subtiles = 2;
-    memcpy(&(METATILES[MTI_GAMMA].subtiles[0]),
-           &IDENTITY,
-           sizeof(XForm));
+    Meta* ptr = &(ALL_TILES[num_tiles]);
+    num_tiles = new_size;
+    return ptr;
+}
+
+/*
+ Initialize a tile system that we can use build_super_tiles on.
+ */
+Meta* init_meta_tiles() {
+    Meta *buf = alloc_tiles(TT_COUNT);
+    
+    Meta st_init = {
+        .quad = {{SPECTRE_POINTS[ 3 ],
+                  SPECTRE_POINTS[ 5 ],
+                  SPECTRE_POINTS[ 7 ],
+                  SPECTRE_POINTS[ 11 ]}},
+        .children = {
+            {NULL, IDENTITY},
+            {NULL, IDENTITY},
+            {NULL, IDENTITY},
+            {NULL, IDENTITY},
+            {NULL, IDENTITY},
+            {NULL, IDENTITY},
+            {NULL, IDENTITY},
+            {NULL, IDENTITY},
+        },
+    };
+
+    for (size_t i=TT_FIRST;i<TT_END;++i) {
+        buf[i] = st_init;
+    }
+    Meta *gamma1 = alloc_tiles(2);
+    gamma1->quad = st_init.quad;
+    gamma1->num_children = 0;
+    Meta *gamma2 = gamma1 + 1;
+    gamma2->quad = st_init.quad;
+    gamma2->num_children = 0;
+    add_child(&(buf[TT_GAMMA]), gamma1, &IDENTITY);
     XForm trans;
     mk_translation(SPECTRE_POINTS[8],  &trans);
     XForm rot;
     mk_rotation(PI_6, &rot);
     XForm xform;
-    mul(&trans, &rot, &xform);
-    memcpy(&(METATILES[MTI_GAMMA].subtiles[1]),
-           &xform,
-           sizeof(XForm));
+    compose(&trans, &rot, &xform);
+    add_child(&(buf[TT_GAMMA]), gamma2, &xform);
+    return buf;
 }
 
-/* rotation angle, starting quad point, target quad point */
-typedef struct XFormRule {
-    float angle;
-    float start;
-    float target;
-} XFormRule;
 
-XFormRule XFORMRULES[] = {
-    {  PI_6, 3.f, 1.f},
-    {   0.f, 2.f, 0.f},
-    {  PI_6, 3.f, 1.f},
-    {  PI_6, 3.f, 1.f},
-    {   0.f, 2.f, 0.f},
-    {  PI_6, 3.f, 1.f},
-    { -PI_3, 3.f, 3.f},
-};
-
-/* use the production rules on the current tiles in input to fill output with even more tiles */
-void build_supertiles(MetaTile *input, size_t input_size, MetaTile *output, size_t output_size) {
-    size_t n_xform_rules = sizeof(XFORMRULES) / sizeof(XFORMRULES[0]);
+/*
+ use the production rules on the current tiles to make even more tiles
+ */
+Meta* build_super_tiles(Meta *current_tiles) {
+    /*
+       first init a list of transformations based on a reference tile
+     */
+     
+    Quad *reference_quad = &(current_tiles[TT_DELTA].quad);
+    
+    XForm transforms[TT_COUNT];
+    transforms[0] = IDENTITY;
     float angle = 0.f;
-    XForm rotation;
-    memcpy(&rotation, &IDENTITY, sizeof(rotation));
-    for (size_t i=0;i<n_xform_rules;++i) {
+    XForm rotation = IDENTITY;
+    for (size_t i=0;i<N_XFORMRULES;++i) {
+        Quad transformed_quad;
+        memcpy(&transformed_quad, reference_quad, sizeof(transformed_quad));
         float xform_angle = XFORMRULES[i].angle;
+        size_t xform_from_idx = XFORMRULES[i].from_idx;
+        size_t xform_to_idx = XFORMRULES[i].to_idx;
         if (0.f != xform_angle) {
             angle += xform_angle;
+            if (xform_angle != 0.f) {
+                mk_rotation(angle, &rotation);
+                for (size_t j=0;j<4;++j) {
+                    transformed_quad.raw[i] = xform_point(
+                        &rotation,
+                        reference_quad->raw[i]
+                    );
+                }
+            }
+            
+            Float2 tmp = xform_point(&(transforms[i]), transformed_quad.raw[xform_from_idx]);
+            XForm translation;
+            mk_translation_to(
+                transformed_quad.raw[xform_to_idx],
+                tmp,
+                &translation);
+            XForm rotated;
+            compose(&translation, &rotation, &rotated);
+            XForm flipped;
+            compose(&FLIP, &rotated, &flipped);
+            memcpy(&(transforms[i+1]), &flipped, sizeof(transforms[0]));
         }
     }
-
-/* Reference code from https://github.com/shrx/spectre:
-    # First, use any of the nine-unit tiles in tileSystem to obtain
-    # a list of transformation matrices for placing tiles within
-    # supertiles.
-    quad = tileSystem["Delta"].quad
-    R = [-1, 0, 0, 0, 1, 0]
-
-
-    transformations = [IDENTITY]
-    total_angle = 0
-    rotation = IDENTITY
-    transformed_quad = list(quad)
-
-    for _angle, _from, _to in transformation_rules:
-        if(_angle != 0):
-            total_angle += _angle
-            rotation = trot(np.deg2rad(total_angle))
-            transformed_quad = [ transPt(rotation, quad_pt) for quad_pt in quad ]
-
-        ttt = transTo(
-            transformed_quad[_to],
-            transPt(transformations[-1], quad[_from])
-        )
-        transformations.append(mul(ttt, rotation))
-
-    transformations = [ mul(R, transformation) for transformation in transformations ]
-
-    # Now build the actual supertiles, labelling appropriately.
-    super_rules = {
-        "Gamma":  ["Pi",  "Delta", None,  "Theta", "Sigma", "Xi",  "Phi",    "Gamma"],
-        "Delta":  ["Xi",  "Delta", "Xi",  "Phi",   "Sigma", "Pi",  "Phi",    "Gamma"],
-        "Theta":  ["Psi", "Delta", "Pi",  "Phi",   "Sigma", "Pi",  "Phi",    "Gamma"],
-        "Lambda": ["Psi", "Delta", "Xi",  "Phi",   "Sigma", "Pi",  "Phi",    "Gamma"],
-        "Xi":     ["Psi", "Delta", "Pi",  "Phi",   "Sigma", "Psi", "Phi",    "Gamma"],
-        "Pi":     ["Psi", "Delta", "Xi",  "Phi",   "Sigma", "Psi", "Phi",    "Gamma"],
-        "Sigma":  ["Xi",  "Delta", "Xi",  "Phi",   "Sigma", "Pi",  "Lambda", "Gamma"],
-        "Phi":    ["Psi", "Delta", "Psi", "Phi",   "Sigma", "Pi",  "Phi",    "Gamma"],
-        "Psi":    ["Psi", "Delta", "Psi", "Phi",   "Sigma", "Psi", "Phi",    "Gamma"]
+    
+    /*
+       now build the new tiles and add to their category
+     */
+    Quad new_quad = {{
+        xform_point(&(transforms[6]), reference_quad->c),
+        xform_point(&(transforms[5]), reference_quad->b),
+        xform_point(&(transforms[3]), reference_quad->c),
+        xform_point(&(transforms[0]), reference_quad->b)
+    }};
+    
+    Meta *new_tiles = alloc_tiles(TT_COUNT);
+    
+    for (size_t i=0;i<TT_COUNT;++i) {
+        for (size_t j=0;j<TT_COUNT;++j) {
+            TileType sub_type = SUBS_RULES[i][j];
+            if (sub_type == TT_INVALID) { continue; }
+            add_child(
+                &(new_tiles[i]),
+                &(current_tiles[sub_type]),
+                &(transforms[j])
+            );
+        }
+        new_tiles[i].quad = new_quad;
     }
-    super_quad = [
-        transPt(transformations[6], quad[2]),
-        transPt(transformations[5], quad[1]),
-        transPt(transformations[3], quad[2]),
-        transPt(transformations[0], quad[1])
-    ]
+    return new_tiles;
+}
 
-    return {
-        label: MetaTile(
-            [ [tileSystem[substitution], transformation] for substitution, transformation in zip(substitutions, transformations) if substitution ],
-            super_quad
-        ) for label, substitutions in super_rules.items() }*/
+
+/* write a single (meta) tile as SVG */
+void write_tile(FILE *f, Meta *tile) {
+    /* TODO */
+}
+
+/* write a batch of tiles as SVG */
+void write_tiles(FILE *f, Meta *tiles, size_t count) {
+    Meta* end = tiles + count;
+    for (Meta*p=tiles;p<end;++p) {
+        write_tile(f, p);
+    }
 }
 
 
 /* entry point */
 int main(int argc, const char **argv) {
-    srand(9910);
-    MetaTile *buf_a = calloc(2*TILEBUFSIZE, sizeof(MetaTile));
-    if (NULL == buf_a) {
-        fprintf(stderr, "alloc failed");
-        exit(1);
-    }
-    MetaTile *buf_b = buf_a + TILEBUFSIZE;
-    init_meta_tiles(buf_a, TILEBUFSIZE);
-    MetaTile *input_buf = buf_a;
-    MetaTile *output_buf = buf_a;
+    Meta *tiles = init_meta_tiles();
     for (size_t i=0;i<N_ITERATIONS;++i) {
-        input_buf = (i%2==0) ? buf_a : buf_b;
-        output_buf = (i%2==0) ? buf_b : buf_a;
-        build_supertiles(input_buf, TILEBUFSIZE, output_buf, TILEBUFSIZE);
+        Meta *backup = tiles;
+        tiles = build_super_tiles(tiles);
+        free(backup);
     }
 
     FILE *f = fopen(OUT_PATH, "w");
@@ -262,26 +400,10 @@ int main(int argc, const char **argv) {
 
     begin_svg(f, WIDTH, HEIGHT);
     fprintf(f, "\n<rect x=\"0\" y=\"0\" width=\"%.2f\" height=\"%.2f\" fill=\"%s\"/>", WIDTH, HEIGHT, BACKGROUND_COLOR);
-
-
-    float col_width = 3 * KITE_SHORT_SIDE;
-    float row_height = 2 * KITE_LONG_SIDE;
-    int num_rows = (int)(ceilf(HEIGHT / row_height)) + 1;
-    int num_cols = (int)(ceilf(WIDTH / col_width)) + 1;
-    for (int row=0;row<num_rows;++row) {
-        float y = row_height * (float)row;
-        for (int col=0;col<num_cols;++col) {
-            if ((row==0) && (col==0)) {continue;} /* the original handles 0,0 already */
-            float x = col_width * (float)col;
-            if (col%2 == 0) {
-                fprintf(f, "\n<use x=\"%.2f\" y=\"%.2f\" href=\"#tileable-quad\" />", x, y);
-            } else {
-                fprintf(f, "\n<use x=\"%.2f\" y=\"%.2f\" href=\"#tileable-quad\" transform=\"scale(-1, 1)/>", -x, y);
-            }
-        }
-    }
+    write_tiles(f, tiles, TT_COUNT);
     end_svg(f);
     fclose(f);
+    free(tiles);
 
     return 0;
 }

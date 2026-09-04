@@ -78,7 +78,6 @@ typedef enum TileType {
 
 /* Begin types */
 
-
 /** matrix representation of affine transformations */
 typedef union XForm {
     float raw[6];
@@ -161,6 +160,7 @@ typedef struct TRule {
     size_t to;
 } TRule;
 
+typedef void (*WriteFn)(FILE*,const XForm*);
 
 /* End types */
 
@@ -184,7 +184,7 @@ static const TileType START_TILE = TT_GAMMA;
 static const char* PRIMARY_COLOR = "blue";
 static const char* SECONDARY_COLOR = "gray";
 static const char* BACKGROUND_COLOR = "#f9f9f9";
-static const char* STROKE_WEIGHT = "0.05";
+static const char* STROKE_WEIGHT = "0.5";
 const XForm FLIP = {{-1.f, 0.f, 0.f, 0.f, 1.f, 0.f}}; /** x-axis flip transfrom */
 const XForm IDENT = {{1, 0, 0, 0, 1, 0}}; /** do-nothing transfrom */
 static const char *OUT_PATH = "./dist/aperiodic.svg"; /** where to save the file */
@@ -192,6 +192,8 @@ static const float LEFT = -MARGIN; /** cull tiles outside of this box */
 static const float RIGHT = WIDTH+MARGIN; /** cull tiles outside of this box */
 static const float TOP = -MARGIN; /** cull tiles outside of this box */
 static const float BOTTOM = HEIGHT+MARGIN; /** cull tiles outside of this box */
+static const char* POINT_RADIUS = "2";
+static const char* ANIM_DURATION = "2s";
 
 /** geometry of the spectre tile */
 const Pt SPECTRE[N_SPECTRE_VERTICES] = {
@@ -211,6 +213,9 @@ const Pt SPECTRE[N_SPECTRE_VERTICES] = {
         {{0.0, 1.0}},
     };
 
+/** where to place the point in the tile */
+Pt PT = {{ 1.473855f, 1.045284f }};
+
 /** substitution rules */
 const SuperRulesRow super_rules[] = {
     /*Gamma*/  {{ TT_PI, TT_DELTA, TT_INVALID, TT_THETA, TT_SIGMA,  TT_XI,    TT_PHI, TT_GAMMA}},
@@ -227,8 +232,8 @@ enum {N_SUPER_RULES = 8};
 
 
 /** transform to fit things in the view window */
-const XForm TO_SCREEN = {{5, 0, 95,
-                          0, -5, -60}};
+const XForm TO_SCREEN = {{6, 0, 95,
+                          0, -6, -80}};
 
 
 /** map the tile type enum to tile color enum */
@@ -305,21 +310,6 @@ static XForm mul(XForm A, XForm B) {
 static float radians(float deg) { return deg * DEG_TO_RAD; }
 
 
-/**
-  Used in the curved-shape code to make bezier control points.
-  I don't understand the name - Mike
- */
-Pt pframe(Pt o, Pt p, Pt q, float a, float b) {
-    return (Pt) { .x = o.x + a*p.x + b*q.x, .y = o.y + a*p.y + b*q.y };
-}
-
-
-/** vector math */
-Pt psub(Pt p, Pt q) {
-    return (Pt) { .x = p.x - q.x, .y = p.y - q.y };
-}
-
-
 /** terse way to construct point */
 static Pt pt(float x, float y) {
     return (Pt) {.x=x,.y=y};
@@ -338,8 +328,8 @@ static Child shape(Quad quad, XForm xform, TileColor color) {
 
 
 /** transform a point */
-static Pt transPt(XForm M, Pt P) {
-    return pt(M.e0*P.x + M.e1*P.y + M.e2, M.e3*P.x + M.e4*P.y + M.e5);
+static Pt transPt(const XForm *t, Pt p) {
+    return pt(t->m00*p.x + t->m01*p.y + t->m02, t->m10*p.x + t->m11*p.y + t->m12);
 }
 
 
@@ -363,39 +353,44 @@ static XForm ttrans(float tx, float ty) {
 }
 
 
-static void debug_print_xform(const char* label, XForm xform) {
-    printf("%s:\n  %.4f %.4f %.4f\n  %.4f %.4f %.4f\n", label, xform.e0, xform.e1, xform.e2, xform.e3, xform.e4, xform.e5);
-}
-
-
 /** write out SVG for the thing */
-static void write_tiles(Child *this, FILE *f, XForm S) {
+static void write_tiles(Child *this, FILE *f, XForm S, WriteFn write) {
     XForm combined = mul(S, this->xform);
     if (this->kind == CK_META) {
         for (size_t i=0; i<this->meta.n_geoms; ++i) {
             Child *child = &(this->meta.geoms[i]);
-            write_tiles(child, f, combined);
+            write_tiles(child, f, combined, write);
         }
     } else if (this->kind == CK_SHAPE) {
         float x = combined.m02;
         float y = combined.m12;
         // bail if outside the range we care about
         if ((LEFT <= x) && (x <= RIGHT) && (TOP <= y) && (y <= BOTTOM)) {
-            fprintf(f, "\n<polygon points=\"");
-            for (size_t i=0;i<N_SPECTRE_VERTICES;++i) {
-                const Pt sp = transPt(combined, SPECTRE[i]);
-                if (i!=0) {
-                    fprintf(f, " ");
-                }
-                fprintf(f, "%f,%f", sp.x, sp.y);
-            }
-            fprintf(f, "\"/>");
+            write(f, &combined);
         }
     } else {
         // nothing to do for CK_NONE
     }
 }
 
+/* write a single tile */
+static void write_tile(FILE *f, const XForm *xform) {
+    fprintf(f, "\n<polygon points=\"");
+    for (size_t i=0;i<N_SPECTRE_VERTICES;++i) {
+        const Pt sp = transPt(xform, SPECTRE[i]);
+        if (i!=0) {
+            fprintf(f, " ");
+        }
+        fprintf(f, "%f,%f", sp.x, sp.y);
+    }
+    fprintf(f, "\"/>");
+}
+
+/* write a single point */
+static void write_point(FILE *f, const XForm *xform) {
+    const Pt p = transPt(xform, PT);
+    fprintf(f, "\n<circle cx=\"%f\" cy=\"%f\" r=\"%s\" />", p.x, p.y, POINT_RADIUS);
+}
 
 /** prepare the initial metatiles */
 static Sys buildSpectreBase() {
@@ -449,12 +444,12 @@ static Sys buildSupertiles( Sys sys ) {
         if( ang != 0 ) {
             rot = trot( radians( total_ang ) );
             for(size_t i=0;i<4;++i) {
-                tquad.raw[i] = transPt( rot, quad.raw[i] );
+                tquad.raw[i] = transPt(&rot, quad.raw[i] );
             }
         }
 
         XForm ttt = transTo( tquad.raw[to], 
-            transPt( Ts[ts_length-1], quad.raw[from] ) );
+            transPt(&(Ts[ts_length-1]), quad.raw[from] ) );
         Ts[ts_length++] = mul( ttt, rot );
     }
 
@@ -464,10 +459,10 @@ static Sys buildSupertiles( Sys sys ) {
 
     /* Now build the actual supertiles, labelling appropriately. */
     Quad super_quad = {{
-        transPt( Ts[6], quad.e2 ),
-        transPt( Ts[5], quad.e1 ),
-        transPt( Ts[3], quad.e2 ),
-        transPt( Ts[0], quad.e1 ) }}; 
+        transPt(&(Ts[6]), quad.e2),
+        transPt(&(Ts[5]), quad.e1),
+        transPt(&(Ts[3]), quad.e2),
+        transPt(&(Ts[0]), quad.e1) }}; 
 
     Sys ret = {0};
 
@@ -510,9 +505,30 @@ int main() {
         WIDTH,
         HEIGHT
     );
+
+    fprintf(f, "\n<style type=\"text/css\">");
+    fprintf(f, "\n#tiles{animation:tilestroke %s linear infinite}", ANIM_DURATION);
+    fprintf(f, "\n#points circle{animation:pointradius %s linear infinite}", ANIM_DURATION);
+    fprintf(
+        f,
+        "\n@keyframes tilestroke{0%%{stroke-width:0} 7%%{stroke-width:%s} 50%%{stroke-width:%s} 93%%{stroke-width:0)}",
+        STROKE_WEIGHT,
+        STROKE_WEIGHT
+    );
+    fprintf(
+        f,
+        "\n@keyframes pointradius{0%%{r:0} 14%%{r:%s} 93%%{r:%s) 100%%{r:0}}",
+        POINT_RADIUS,
+        POINT_RADIUS
+    );
+    fprintf(f, "\n</style>");
+        
     fprintf(f, "\n<rect x=\"0\" y=\"0\" width=\"%d\" height=\"%d\" fill=\"%s\" />", WIDTH, HEIGHT, BACKGROUND_COLOR );
-    fprintf(f, "\n<g stroke=\"%s\" stroke-weight=\"%s\" fill=\"none\">", SECONDARY_COLOR, STROKE_WEIGHT);
-    write_tiles(&sys.tiles[START_TILE], f, TO_SCREEN);
+    fprintf(f, "\n<g id=\"tiles\" stroke=\"%s\" stroke-width=\"%s\" fill=\"none\">", SECONDARY_COLOR, STROKE_WEIGHT);
+    write_tiles(&sys.tiles[START_TILE], f, TO_SCREEN, write_tile);
+    fprintf(f, "\n</g>");
+    fprintf(f, "\n<g id=\"points\" stroke=\"none\" fill=\"%s\">", PRIMARY_COLOR);
+    write_tiles(&sys.tiles[START_TILE], f, TO_SCREEN, write_point);
     fprintf(f, "\n</g>");
     fprintf(f, "\n</svg>");
 }

@@ -4,32 +4,58 @@
    It uses the spectre tiling from
       Smith, D., Myers, J. S, Kaplan, C. S, & Goodman-Strauss, C. (2024). A chiral aperiodic monotile. Combinatorial Theory, 4(2). http://dx.doi.org/10.5070/C64264241
    
-   Based on the Javascript implementation by those authors found at https://cs.uwaterloo.ca/~csk/spectre/spectre.js
+   Code based on the Javascript implementation by those authors found at https://cs.uwaterloo.ca/~csk/spectre/spectre.js
+
+   Note: In the interest of making port form JS straightforward, this code
+   intentionally leaks memory, allocates with unreasonable frequency, makes a
+   lot of unnecessary copies, and is bad about C best practices and coding
+   style.
  */
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <time.h>
 #include <math.h>
+#include <stdlib.h>
+#include <stdio.h>
 
-#define WRITE_SVG_IMPLEMENTATION
-#include "write_svg.h"
-#undef WRITE_SVG_IMPLEMENTATION
+#define PI   (3.1415926535897932384626433832795f)
+#define PI_OVER_3 (1.0471975511965977461542144610932f)
+#define PI_OVER_6 (0.52359877559829887307710723054658f)
+#define DEG_TO_RAD (0.01745329251994329576923690768489f)
 
-#define PI_3 (1.04719755119659774615f)
-#define PI_6 (0.52359877559829887307f)
-
-static const float WIDTH = 240.f;
-static const float HEIGHT = 180.f;
-static const float POINT_RADIUS = 3.f;
-static const char* POINT_COLOR = "blue";
-static const char* SECONDARY_COLOR = "gray";
-static const char *OUT_PATH = "./dist/aperiodic.svg";
-static const char* BACKGROUND_COLOR = "#f9f9f9";
-static const size_t N_ITERATIONS = 1;
+/* Begin enums */
 
 
-/* types of tiles */
+enum {
+/** number of vertices in the spectre geometry */
+    N_SPECTRE_VERTICES = 14
+};
+
+
+/** child tiles can be either a drawable shape or a meta tile */
+typedef enum ChildKind {
+    CK_NONE,
+    CK_META,
+    CK_SHAPE
+} ChildKind;
+
+
+/** tile type for color purposes */
+typedef enum TileColor {
+    TC_FIRST = 0,
+    TC_GAMMA1 = 0,
+    TC_GAMMA2,
+    TC_DELTA,
+    TC_THETA,
+    TC_LAMBDA,
+    TC_XI,
+    TC_PI,
+    TC_SIGMA,
+    TC_PHI,
+    TC_PSI,
+    TC_COUNT,
+    TC_END = TC_COUNT
+} TileColor;
+
+
+/** types of tiles */
 typedef enum TileType {
     TT_FIRST = 0,
     TT_GAMMA = 0, /* aka the mystic */
@@ -47,60 +73,22 @@ typedef enum TileType {
 } TileType;
 
 
-/* point in 2d */
-typedef union Float2 {
-    float raw[2];
-    struct {
-        float x;
-        float y;
-    };
-} Float2;
+/* End enums */
 
 
-enum {N_SPECTRE_POINTS=14};
-
-/* spectre-tile polygon */
-Float2 SPECTRE_POINTS[N_SPECTRE_POINTS] = {
-    {{0.f, 0.f}},
-    {{1.0f, 0.0f}},
-    {{1.5f, -0.8660254037844386f}},
-    {{2.366025403784439f, -0.36602540378443865f}},
-    {{2.366025403784439f, 0.6339745962155614f}},
-    {{3.366025403784439f, 0.6339745962155614f}},
-    {{3.866025403784439f, 1.5f}},
-    {{3.0f, 2.0f}},
-    {{2.133974596215561f, 1.5f}},
-    {{1.6339745962155614f, 2.3660254037844393f}},
-    {{0.6339745962155614f, 2.3660254037844393f}},
-    {{-0.3660254037844386f, 2.3660254037844393f}},
-    {{-0.866025403784439f, 1.5f}},
-    {{0.0f, 1.0f}},
-};
-
-Float2 DOT = {{ 1.473855f, 1.045284f }};
+/* Begin types */
 
 
-typedef union Quad {
-    Float2 raw[4];
-    struct {
-        Float2 a;
-        Float2 b;
-        Float2 c;
-        Float2 d;
-    };
-} Quad;
-
-
-/* affine transformations in a matrix representation */
+/** matrix representation of affine transformations */
 typedef union XForm {
     float raw[6];
     struct {
-        float r00;
-        float r01;
-        float x;
-        float r10;
-        float r11;
-        float y;
+        float e0;
+        float e1;
+        float e2;
+        float e3;
+        float e4;
+        float e5;
     };
     struct {
         float m00;
@@ -111,366 +99,420 @@ typedef union XForm {
         float m12;
     };
 } XForm;
-XForm IDENTITY = {{ 1.f,  0.f, 0.f,
-                    0.f,  1.f, 0.f}};
-XForm FLIP     = {{-1.f,  0.f, 0.f,
-                    0.f,  1.f, 0.f}};
-XForm DISPLAY_XFORM  = {{10.f,   0.f, 120.f,
-                          0.f, -10.f, 90.f}};
 
 
-/* information about a particular tile */
-typedef struct ChildTile {
-    struct Meta *meta;
+/** 2d point */
+typedef union Pt {
+    float raw[2];
+    struct {
+        float x;
+        float y;   
+    };
+} Pt;
+
+
+/** used to build the transforms as we iterate */
+typedef union Quad {
+    Pt raw[4];
+    struct {
+        Pt e0;
+        Pt e1;
+        Pt e2;
+        Pt e3;
+    };
+} Quad;
+
+
+/** parts of a metatile */
+typedef struct Child {
+    ChildKind kind;
     XForm xform;
-} ChildTile;
-
-
-/* a tile that may be made up of other tiles */
-typedef struct Meta {
     Quad quad;
-    ChildTile children[TT_COUNT];
-    size_t num_children;
-} Meta;
+    union {
+        struct {
+            struct Child *geoms;
+            size_t n_geoms;
+        } meta;
+        struct {
+            TileColor color;
+        } shape;
+    };
+} Child;
 
 
-/* rotation angle, starting quad point, target quad point */
-typedef struct XFormRule {
+/** the type of tile to generate for each source tile type */
+typedef struct SuperRulesRow {
+    TileType raw[8];
+} SuperRulesRow;
+enum {SUPER_RULES_ROW_LEN = sizeof(SuperRulesRow) / sizeof(TileType)};
+
+
+/** current tiles system */
+typedef struct Sys {
+    Child tiles[TT_COUNT];
+} Sys;
+
+
+/** transformation rules when producing subtiles */
+typedef struct TRule {
+    /** in degrees */
     float angle;
-    size_t from_idx;
-    size_t to_idx;
-} XFormRule;
+    size_t from;
+    size_t to;
+} TRule;
 
 
-enum {SUBS_RULE_LEN = 8};
+/* End types */
 
 
-/*
-   the tiles that can be produced from a tile, indexed by their type
- 
-   TT_INVALID marks that that slot is unused
- */
-typedef TileType SubsRule[SUBS_RULE_LEN];
-
-/* substitution rules to use as we produce the tiling */
-static SubsRule SUBS_RULES[TT_COUNT] = {
-    {      TT_PI,   TT_DELTA, TT_INVALID,   TT_THETA,   TT_SIGMA,      TT_XI,     TT_PHI,   TT_GAMMA},
-    {      TT_XI,   TT_DELTA,      TT_XI,     TT_PHI,   TT_SIGMA,      TT_XI,     TT_PHI,   TT_GAMMA},
-    {     TT_PSI,   TT_DELTA,      TT_PI,     TT_PHI,   TT_SIGMA,      TT_PI,     TT_PHI,   TT_GAMMA},
-    {     TT_PSI,   TT_DELTA,      TT_XI,     TT_PHI,   TT_SIGMA,      TT_PI,     TT_PHI,   TT_GAMMA},
-    {     TT_PSI,   TT_DELTA,      TT_PI,     TT_PHI,   TT_SIGMA,      TT_PI,     TT_PHI,   TT_GAMMA},
-    {     TT_PSI,   TT_DELTA,      TT_XI,     TT_PHI,   TT_SIGMA,     TT_PSI,     TT_PHI,   TT_GAMMA},
-    {      TT_XI,   TT_DELTA,      TT_XI,     TT_PHI,   TT_SIGMA,     TT_PSI,  TT_LAMBDA,   TT_GAMMA},
-    {     TT_PSI,   TT_DELTA,     TT_PSI,     TT_PHI,   TT_SIGMA,      TT_PI,     TT_PHI,   TT_GAMMA},
-    {     TT_PSI,   TT_DELTA,     TT_PSI,     TT_PHI,   TT_SIGMA,     TT_PSI,     TT_PHI,   TT_GAMMA}
-};
+/* begin forward declarations */
 
 
-/*
-   Not 8 because the 0th tile index 0 is not transformed, the others follow the transforms we will
-   generate from XFORMRULES
- */
-enum {N_XFORMRULES = 7};
+static XForm ttrans(float tx, float ty);
 
 
-/* transforms for the substituted tiles */
-static const XFormRule XFORMRULES[N_XFORMRULES] = {
-    {       PI_3, 3, 1},
-    {        0.f, 2, 0},
-    {       PI_3, 3, 1},
-    {       PI_3, 3, 1},
-    {        0.f, 2, 0},
-    {       PI_3, 3, 1},
-    {-2.f * PI_3, 3, 3},
-};
+/* end forward declarations */
 
 
-/* build a translation transform */
-void mk_translation(const Float2 p, XForm *dst) {
-    *dst = (XForm){{1.f, 0.f, p.x,
-                    0.f, 1.f, p.y}};
-}
+/* begin globals */
 
-/* build a translation transform that turns p1 into p2 */
-void mk_translation_to(const Float2 p1, const Float2 p2, XForm *dst) {
-    Float2 p = {{p2.x-p1.x, p2.y-p1.y}};
-    mk_translation(p, dst);
-}
+#define WIDTH (240)
+#define HEIGHT (180)
+#define MARGIN (10)
+static const size_t ITERATIONS = 4;
+static const TileType START_TILE = TT_GAMMA;
+static const char* PRIMARY_COLOR = "blue";
+static const char* SECONDARY_COLOR = "gray";
+static const char* BACKGROUND_COLOR = "#f9f9f9";
+static const char* STROKE_WEIGHT = "0.05";
+const XForm FLIP = {{-1.f, 0.f, 0.f, 0.f, 1.f, 0.f}}; /** x-axis flip transfrom */
+const XForm IDENT = {{1, 0, 0, 0, 1, 0}}; /** do-nothing transfrom */
+static const char *OUT_PATH = "./dist/aperiodic.svg"; /** where to save the file */
+static const float LEFT = -MARGIN; /** cull tiles outside of this box */
+static const float RIGHT = WIDTH+MARGIN; /** cull tiles outside of this box */
+static const float TOP = -MARGIN; /** cull tiles outside of this box */
+static const float BOTTOM = HEIGHT+MARGIN; /** cull tiles outside of this box */
 
-/* build a rotate transform */
-void mk_rotation(float angle, XForm *dst) {
-    float c = cosf(angle);
-    float s = sinf(angle);
-    *dst = (XForm){{  c, -s, 0.f,
-                      s,  c, 0.f}};
-}
-
-/* compose transformations */
-void compose(XForm *a, XForm *b, XForm *out) {
-    *out = (XForm){{
-        a->m00 * b->m00 + a->m01 * b->m10,
-        a->m00 * b->m01 + a->m01 * b->m11,
-        a->m00 * b->m02 + a->m01 * b->m12 + a->m02,
-        
-        a->m10 * b->m00 + a->m11 * b->m10,
-        a->m10 * b->m01 + a->m11 * b->m11,
-        a->m10 * b->m02 + a->m11 * b->m12 + a->m12
-    }};
-}
-
-/* apply a transformation to a point */
-Float2 xform_point(XForm *xform, const Float2 p) {
-    return (Float2) {{
-        xform->m00 * p.x + xform->m01 * p.y + xform->m02,
-        xform->m10 * p.x + xform->m11 * p.y + xform->m12
-    }};
-}
-
-/* apply a transformation to a point, modifying it in place */
-void xform_point_in_place(XForm *xform, Float2 *p) {
-    float x = p->x;
-    float y = p->y;
-    p->x = xform->m00 * x + xform->m01 * y + xform->m02;
-    p->y = xform->m10 * x + xform->m11 * y + xform->m12;
-}
-
-/* add a new tile to the tile type */
-void add_child(Meta *tc, Meta *meta, XForm *xform) {
-    if (tc->num_children >= TT_COUNT) {
-        fprintf(stderr, "added too many children\n");
-        fflush(stderr);
-        exit(1);
-    }
-    tc->children[tc->num_children].meta = meta;
-    tc->children[tc->num_children].xform = *xform;
-    tc->num_children++;
-}
-
-enum {TILES_CAPACITY=256};
-static Meta ALL_TILES[TILES_CAPACITY];
-static size_t num_tiles = 0;
-Meta* alloc_tiles(size_t request_size) {
-    size_t new_size = num_tiles + request_size;
-    if (num_tiles + request_size > TILES_CAPACITY) {
-        fprintf(stderr, "increase buffer size >=%lld\n", new_size);
-        fflush(stderr);
-        exit(1);
-    }
-    Meta* ptr = &(ALL_TILES[num_tiles]);
-    num_tiles = new_size;
-    return ptr;
-}
-
-/*
- Initialize a tile system that we can use build_super_tiles on.
- */
-Meta* init_meta_tiles() {
-    Meta *buf = alloc_tiles(TT_COUNT);
-    
-    Meta st_init = {
-        .quad = {{SPECTRE_POINTS[ 3 ],
-                  SPECTRE_POINTS[ 5 ],
-                  SPECTRE_POINTS[ 7 ],
-                  SPECTRE_POINTS[ 11 ]}},
-        .children = {
-            {NULL, IDENTITY},
-            {NULL, IDENTITY},
-            {NULL, IDENTITY},
-            {NULL, IDENTITY},
-            {NULL, IDENTITY},
-            {NULL, IDENTITY},
-            {NULL, IDENTITY},
-            {NULL, IDENTITY},
-        },
+/** geometry of the spectre tile */
+const Pt SPECTRE[N_SPECTRE_VERTICES] = {
+        {{0, 0}},
+        {{1.0, 0.0}},
+        {{1.5, -0.8660254037844386}},
+        {{2.366025403784439, -0.36602540378443865}},
+        {{2.366025403784439, 0.6339745962155614}},
+        {{3.366025403784439, 0.6339745962155614}},
+        {{3.866025403784439, 1.5}},
+        {{3.0, 2.0}},
+        {{2.133974596215561, 1.5}},
+        {{1.6339745962155614, 2.3660254037844393}},
+        {{0.6339745962155614, 2.3660254037844393}},
+        {{-0.3660254037844386, 2.3660254037844393}},
+        {{-0.866025403784439, 1.5}},
+        {{0.0, 1.0}},
     };
 
-    for (size_t i=TT_FIRST;i<TT_END;++i) {
-        buf[i] = st_init;
+/** substitution rules */
+const SuperRulesRow super_rules[] = {
+    /*Gamma*/  {{ TT_PI, TT_DELTA, TT_INVALID, TT_THETA, TT_SIGMA,  TT_XI,    TT_PHI, TT_GAMMA}},
+    /*Delta*/  {{ TT_XI, TT_DELTA,      TT_XI, TT_PHI,   TT_SIGMA,  TT_PI,    TT_PHI, TT_GAMMA}},
+    /*Theta*/  {{TT_PSI, TT_DELTA,      TT_PI, TT_PHI,   TT_SIGMA,  TT_PI,    TT_PHI, TT_GAMMA}},
+    /*Lambda*/ {{TT_PSI, TT_DELTA,      TT_XI, TT_PHI,   TT_SIGMA,  TT_PI,    TT_PHI, TT_GAMMA}},
+    /*Xi*/     {{TT_PSI, TT_DELTA,      TT_PI, TT_PHI,   TT_SIGMA, TT_PSI,    TT_PHI, TT_GAMMA}},
+    /*Pi*/     {{TT_PSI, TT_DELTA,      TT_XI, TT_PHI,   TT_SIGMA, TT_PSI,    TT_PHI, TT_GAMMA}},
+    /*Sigma*/  {{ TT_XI, TT_DELTA,      TT_XI, TT_PHI,   TT_SIGMA,  TT_PI, TT_LAMBDA, TT_GAMMA}},
+    /*Phi*/    {{TT_PSI, TT_DELTA,     TT_PSI, TT_PHI,   TT_SIGMA,  TT_PI,    TT_PHI, TT_GAMMA}},
+    /*Psi*/    {{TT_PSI, TT_DELTA,     TT_PSI, TT_PHI,   TT_SIGMA, TT_PSI,    TT_PHI, TT_GAMMA}}
+    };
+enum {N_SUPER_RULES = 8};
+
+
+/** transform to fit things in the view window */
+const XForm TO_SCREEN = {{5, 0, 95,
+                          0, -5, -60}};
+
+
+/** map the tile type enum to tile color enum */
+const TileColor TT_TO_TC[TT_COUNT] = {
+    /*TT_GAMMA*/ TC_GAMMA1,
+    /*TT_DELTA*/ TC_DELTA,
+    /*TT_THETA*/ TC_THETA,
+    /*TT_LAMBDA*/ TC_LAMBDA,
+    /*TT_XI*/ TC_XI,
+    /*TT_PI*/ TC_PI,
+    /*TT_SIGMA*/ TC_SIGMA,
+    /*TT_PHI*/ TC_PHI,
+    /*TT_PSI*/ TC_PSI,
+};
+
+
+/** transformation rules */
+const TRule t_rules[] = {
+    {60.f, 3, 1},
+    {0.f, 2, 0},
+    {60.f, 3, 1},
+    {60.f, 3, 1},
+    {0.f, 2, 0},
+    {60.f, 3, 1},
+    {-120.f, 3, 3},
+};
+enum {N_T_RULES = sizeof(t_rules) / sizeof(t_rules[0])};
+
+
+/* end globals */
+
+
+/** add more geometry to a metatile */
+static void add_child(Child *this, Child g) {
+    if (this->kind != CK_META) {
+        fprintf(stderr, "Adding child to non-meta tile\n");
+        exit(1);
     }
-    Meta *gamma1 = alloc_tiles(2);
-    gamma1->quad = st_init.quad;
-    gamma1->num_children = 0;
-    Meta *gamma2 = gamma1 + 1;
-    gamma2->quad = st_init.quad;
-    gamma2->num_children = 0;
-    add_child(&(buf[TT_GAMMA]), gamma1, &IDENTITY);
-    XForm trans;
-    mk_translation(SPECTRE_POINTS[8],  &trans);
-    XForm rot;
-    mk_rotation(PI_6, &rot);
-    XForm xform;
-    compose(&trans, &rot, &xform);
-    add_child(&(buf[TT_GAMMA]), gamma2, &xform);
-    return buf;
+    this->meta.geoms = realloc(this->meta.geoms, (this->meta.n_geoms+1) * sizeof(this->meta.geoms[0]));
+    if (NULL == this->meta.geoms) {
+        fprintf(stderr, "alloc failed\n");
+        exit(1);
+    }
+    this->meta.geoms[this->meta.n_geoms++] = g;
 }
 
 
-/*
- use the production rules on the current tiles to make even more tiles
+/** build a Meta */
+static Child meta(Quad quad) {
+    return (Child) {
+        .kind = CK_META,
+        .xform = IDENT,
+        .quad = quad,
+        .meta = {.geoms=NULL,.n_geoms=0}
+    };
+}
+
+
+/** Affine matrix multiply */
+static XForm mul(XForm A, XForm B) {
+    return (XForm) {{
+        A.e0*B.e0 + A.e1*B.e3, 
+        A.e0*B.e1 + A.e1*B.e4,
+        A.e0*B.e2 + A.e1*B.e5 + A.e2,
+
+        A.e3*B.e0 + A.e4*B.e3, 
+        A.e3*B.e1 + A.e4*B.e4,
+        A.e3*B.e2 + A.e4*B.e5 + A.e5
+    }};
+}
+
+
+/** convert degrees to radians */
+static float radians(float deg) { return deg * DEG_TO_RAD; }
+
+
+/**
+  Used in the curved-shape code to make bezier control points.
+  I don't understand the name - Mike
  */
-Meta* build_super_tiles(Meta *current_tiles) {
-    /*
-       first init a list of transformations based on a reference tile
-     */
-     
-    Quad *reference_quad = &(current_tiles[TT_DELTA].quad);
-    
-    XForm transforms[SUBS_RULE_LEN] = {IDENTITY, IDENTITY, IDENTITY, IDENTITY, IDENTITY, IDENTITY, IDENTITY, IDENTITY};
-    float total_angle = 0.f;
-    XForm rotation = IDENTITY;
-    for (size_t i=0;i<N_XFORMRULES;++i) {
-        Quad transformed_quad;
-        memcpy(&transformed_quad, reference_quad, sizeof(transformed_quad));
-        float xform_angle = XFORMRULES[i].angle;
-        size_t xform_from_idx = XFORMRULES[i].from_idx;
-        size_t xform_to_idx = XFORMRULES[i].to_idx;
-        if (0.f != xform_angle) {
-            total_angle += xform_angle;
-            if (xform_angle != 0.f) {
-                mk_rotation(total_angle, &rotation);
-                for (size_t j=0;j<4;++j) {
-                    transformed_quad.raw[j] = xform_point(
-                        &rotation,
-                        reference_quad->raw[j]
-                    );
+Pt pframe(Pt o, Pt p, Pt q, float a, float b) {
+    return (Pt) { .x = o.x + a*p.x + b*q.x, .y = o.y + a*p.y + b*q.y };
+}
+
+
+/** vector math */
+Pt psub(Pt p, Pt q) {
+    return (Pt) { .x = p.x - q.x, .y = p.y - q.y };
+}
+
+
+/** terse way to construct point */
+static Pt pt(float x, float y) {
+    return (Pt) {.x=x,.y=y};
+}
+
+
+/** make a shape */
+static Child shape(Quad quad, XForm xform, TileColor color) {
+    return (Child) {
+        .kind = CK_SHAPE,
+        .xform = xform,
+        .quad = quad,
+        .shape = {.color=color}
+    };
+}
+
+
+/** transform a point */
+static Pt transPt(XForm M, Pt P) {
+    return pt(M.e0*P.x + M.e1*P.y + M.e2, M.e3*P.x + M.e4*P.y + M.e5);
+}
+
+
+/** Translation matrix from p to q */
+static XForm transTo(Pt p, Pt q) {
+    return ttrans( q.x - p.x, q.y - p.y );
+}
+
+
+/** Rotation matrix */
+static XForm trot(float ang) {
+    const float c = cosf( ang );
+    const float s = sinf( ang );
+    return (XForm) {{ c, -s, 0.f, s, c, 0.f }};
+}
+
+
+/** Translation matrix */
+static XForm ttrans(float tx, float ty) {
+    return (XForm) {{1.f, 0.f, tx, 0.f, 1.f, ty}};
+}
+
+
+static void debug_print_xform(const char* label, XForm xform) {
+    printf("%s:\n  %.4f %.4f %.4f\n  %.4f %.4f %.4f\n", label, xform.e0, xform.e1, xform.e2, xform.e3, xform.e4, xform.e5);
+}
+
+
+/** write out SVG for the thing */
+static void write_tiles(Child *this, FILE *f, XForm S) {
+    XForm combined = mul(S, this->xform);
+    if (this->kind == CK_META) {
+        for (size_t i=0; i<this->meta.n_geoms; ++i) {
+            Child *child = &(this->meta.geoms[i]);
+            write_tiles(child, f, combined);
+        }
+    } else if (this->kind == CK_SHAPE) {
+        float x = combined.m02;
+        float y = combined.m12;
+        // bail if outside the range we care about
+        if ((LEFT <= x) && (x <= RIGHT) && (TOP <= y) && (y <= BOTTOM)) {
+            fprintf(f, "\n<polygon points=\"");
+            for (size_t i=0;i<N_SPECTRE_VERTICES;++i) {
+                const Pt sp = transPt(combined, SPECTRE[i]);
+                if (i!=0) {
+                    fprintf(f, " ");
                 }
+                fprintf(f, "%f,%f", sp.x, sp.y);
+            }
+            fprintf(f, "\"/>");
+        }
+    } else {
+        // nothing to do for CK_NONE
+    }
+}
+
+
+/** prepare the initial metatiles */
+static Sys buildSpectreBase() {
+    const Quad spectre_keys = {{
+        SPECTRE[3], SPECTRE[5], SPECTRE[7], SPECTRE[11]
+    }};
+
+    Sys ret = {0};
+
+    for(TileType tile_type=TT_FIRST;tile_type<TT_END;++tile_type) {
+        ret.tiles[tile_type] = (Child) {
+            .kind = CK_SHAPE,
+            .xform = IDENT,
+            .quad = spectre_keys,
+            .shape = {.color=TT_TO_TC[tile_type]}
+        };
+    }
+
+    Child mystic = meta(spectre_keys);
+    add_child(&mystic, shape(spectre_keys, IDENT, TC_GAMMA1));
+    XForm xform = mul( ttrans(SPECTRE[8].x, SPECTRE[8].y), trot( PI_OVER_6 ) );
+    add_child(&mystic, shape(spectre_keys, xform, TC_GAMMA2));
+    ret.tiles[TT_GAMMA] = mystic;
+
+    return ret;
+}
+
+
+static Sys buildSupertiles( Sys sys ) {
+    /* arbitrarily choosing delta to create the list of xforms */
+    const Quad quad = sys.tiles[TT_DELTA].quad;
+    XForm Ts[N_T_RULES+1] = {
+        IDENT,
+        IDENT,
+        IDENT,
+        IDENT,
+        IDENT,
+        IDENT,
+        IDENT,
+        IDENT
+    };
+    size_t ts_length = 1;
+    float total_ang = 0;
+    XForm rot = IDENT;
+    Quad tquad = quad;
+    for (size_t rule_idx=0;rule_idx<N_T_RULES;++rule_idx) {
+        float ang = t_rules[rule_idx].angle;
+        size_t from = t_rules[rule_idx].from;
+        size_t to = t_rules[rule_idx].to;
+        total_ang += ang;
+        if( ang != 0 ) {
+            rot = trot( radians( total_ang ) );
+            for(size_t i=0;i<4;++i) {
+                tquad.raw[i] = transPt( rot, quad.raw[i] );
             }
         }
-        
-        Float2 tmp = xform_point(&(transforms[i]), reference_quad->raw[xform_from_idx]);
-        XForm translation;
-        mk_translation_to(
-            transformed_quad.raw[xform_to_idx],
-            tmp,
-            &translation);
-        XForm rotated;
-        compose(&translation, &rotation, &rotated);
-        transforms[i+1] = rotated;
-    }
-    for (size_t i=0;i<N_XFORMRULES+1;++i) {
-        XForm flipped;
-        compose(&FLIP, &(transforms[i]), &flipped);
-        transforms[i] = flipped;
+
+        XForm ttt = transTo( tquad.raw[to], 
+            transPt( Ts[ts_length-1], quad.raw[from] ) );
+        Ts[ts_length++] = mul( ttt, rot );
     }
 
-    /*
-       now build the new tiles and add to their category
-     */
-    Quad new_quad = {{
-        xform_point(&(transforms[6]), reference_quad->c),
-        xform_point(&(transforms[5]), reference_quad->b),
-        xform_point(&(transforms[3]), reference_quad->c),
-        xform_point(&(transforms[0]), reference_quad->b)
-    }};
+    for(size_t idx = 0; idx < ts_length; ++idx ) {
+        Ts[idx] = mul( FLIP, Ts[idx] );
+    }
+
+    /* Now build the actual supertiles, labelling appropriately. */
+    Quad super_quad = {{
+        transPt( Ts[6], quad.e2 ),
+        transPt( Ts[5], quad.e1 ),
+        transPt( Ts[3], quad.e2 ),
+        transPt( Ts[0], quad.e1 ) }}; 
+
+    Sys ret = {0};
+
+    for (size_t tile_type=TT_FIRST;tile_type<TT_COUNT;++tile_type) {
+        SuperRulesRow subs = super_rules[tile_type];
+        Child sup = meta(super_quad);
+        for (size_t idx=0;idx<SUPER_RULES_ROW_LEN;++idx) {
+            TileType tt = subs.raw[idx];
+            if (tt == TT_INVALID) {
+                continue;
+            }
+            sys.tiles[tt].xform = Ts[idx];
+            add_child(&sup, sys.tiles[tt]);
+        }
+
+        ret.tiles[tile_type] = sup;
+    }
+
+    return ret;
+}
+
+
+int main() {
+    Sys sys = buildSpectreBase();
+    for (size_t i=0;i<ITERATIONS;++i){
+        sys = buildSupertiles(sys);
+    }
     
-    Meta *new_tiles = alloc_tiles(TT_COUNT);
-    
-    for (size_t i=0;i<TT_COUNT;++i) {
-        new_tiles[i].num_children = 0;
-        for (size_t j=0;j<SUBS_RULE_LEN;++j) {
-            TileType sub_type = SUBS_RULES[i][j];
-            if (sub_type == TT_INVALID) { continue; }
-            add_child(
-                &(new_tiles[i]),
-                &(current_tiles[sub_type]),
-                &(transforms[j])
-            );
-        }
-        new_tiles[i].quad = new_quad;
-    }
-    return new_tiles;
-}
-
-
-/* write a transformed tile as SVG */
-void write_spectre(FILE *f, XForm *xform) {
-    printf("writing spectre now.\n  xform %.2f %.2f %.2f\n", xform->m00, xform->m01, xform->m02);
-    printf("        %.2f %.2f %.2f\n", xform->m10, xform->m11, xform->m12);
-    fprintf(f, "\n<polygon points=\"");
-    for (size_t i=0;i<N_SPECTRE_POINTS;++i) {
-        if (i!=0) {
-            fprintf(f, " ");
-        }
-        Float2 p = xform_point(xform, SPECTRE_POINTS[i]);
-        fprintf(f, "%.2f,%.2f", p.x, p.y);
-    }
-    fprintf(f, "\" />");
-}
-
-
-/* debug quad view */
-void write_quad(FILE *f, Quad *quad, XForm *xform) {
-    fprintf(f, "\n<polygon points=\"");
-    for (size_t i=0;i<4;++i) {
-        if (i!=0) {
-            fprintf(f, " ");
-        }
-        Float2 p = xform_point(xform, quad->raw[i]);
-        fprintf(f, "%.2f, %.2f", p.x, p.y);
-    }
-    fprintf(f, "\" />");
-}
-
-
-/* write a single (meta) tile as SVG */
-void write_tile(FILE *f, Meta *tile, XForm *xform) {
-    if (tile->num_children == 0) {
-        // leaves draw the spectre tile
-        write_spectre(f, xform);
-        //write_quad(f, &(tile->quad), xform);
-    } else {
-        // otherwise drill down
-        for (size_t i=0;i<tile->num_children;++i) {
-            XForm combined;
-            compose(xform, &(tile->children[i].xform), &combined);
-            write_tile(f, tile->children[i].meta, &combined);
-        }
-    }
-}
-
-
-/* write a batch of tiles as SVG */
-void write_tiles(FILE *f, Meta *tiles, size_t count, XForm *xform) {
-    Meta* end = tiles + count;
-    for (Meta*tile=tiles;tile<end;++tile) {
-        write_tile(f, tile, xform);
-    }
-}
-
-
-/* entry point */
-int main(int argc, const char **argv) {
-    double t0 = (double)clock() / CLOCKS_PER_SEC;
-
-    Meta *tiles = init_meta_tiles();
-
-    double t1 = (double)clock() / CLOCKS_PER_SEC;
-    printf("init time: %.3f\n", t1 - t0);
-
-    for (size_t i=0;i<N_ITERATIONS;++i) {
-        fprintf(stderr, "iteration #%lld\n", i+1);
-        tiles = build_super_tiles(tiles);
-    }
-
-    double t2 = (double)clock() / CLOCKS_PER_SEC;
-    printf("build time: %.3f\n", t2 - t1);
-
     FILE *f = fopen(OUT_PATH, "w");
     if (NULL == f) {
         fprintf(stderr, "could not open output file \"%s\"\n", OUT_PATH);
         return 1;
     }
 
-    begin_svg(f, WIDTH, HEIGHT);
-    fprintf(f, "\n<rect x=\"0\" y=\"0\" width=\"%.2f\" height=\"%.2f\" fill=\"%s\"/>", WIDTH, HEIGHT, BACKGROUND_COLOR);
-    fprintf(f, "\n<g stroke=\"%s\" fill=\"none\">", SECONDARY_COLOR);
-    write_tile(f, &(tiles[0]), &DISPLAY_XFORM);
+    fprintf(
+        f,
+        "<svg width=\"%d\" height=\"%d\" viewBox=\"0 0 %d %d\" xmlns=\"http://www.w3.org/2000/svg\" xmlns:xlink=\"http://www.w3.org/1999/xlink\">",
+        WIDTH,
+        HEIGHT,
+        WIDTH,
+        HEIGHT
+    );
+    fprintf(f, "\n<rect x=\"0\" y=\"0\" width=\"%d\" height=\"%d\" fill=\"%s\" />", WIDTH, HEIGHT, BACKGROUND_COLOR );
+    fprintf(f, "\n<g stroke=\"%s\" stroke-weight=\"%s\" fill=\"none\">", SECONDARY_COLOR, STROKE_WEIGHT);
+    write_tiles(&sys.tiles[START_TILE], f, TO_SCREEN);
     fprintf(f, "\n</g>");
-    end_svg(f);
-    fclose(f);
-
-    double t3 = (double)clock() / CLOCKS_PER_SEC;
-    printf("file write time: %.3f\n", t3 - t2);
-
-    return 0;
+    fprintf(f, "\n</svg>");
 }

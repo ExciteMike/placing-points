@@ -1,2 +1,2 @@
 gcc_path = C:\raylib\w64devkit\bin\gcc.exe
-gcc_opts = -std=c17 -IC:/raylib/w64devkit/include -Iinclude -Iexternal -Isrc -LC:/raylib/w64devkit/lib -Llib -lraylib -lgdi32 -lwinmm -lshlwapi -Wall
+gcc_opts = -std=c17 -IC:/raylib/w64devkit/include -Iinclude -Iexternal -Isrc -LC:/raylib/w64devkit/lib -Llib -lraylib -lgdi32 -lwinmm -lshlwapi -Wall -fstack-protector-all -fno-sanitize-recover -Wextra -O2 

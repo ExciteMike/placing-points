@@ -3,26 +3,26 @@
 #tilesclip{animation:tilesclip 10s linear infinite}
 #pointsclip{animation:pointsclip 10s linear infinite}
 @keyframes tilesclip{
-0% { transform: translate(120px,0) scale(0) }
-13% { transform: translate(120px,0) scale(1.0) }
-63% { transform: translate(120px,180px) scale(1.0) }
-75% { transform: translate(120px,180px) scale(0) }
-100% { transform: translate(120px,0) scale(0) }
+  0%{transform:translateX(-240px)}
+  5%{transform:translateX(0)}
+ 65%{transform:translateX(0)}
+ 70%{transform:translateX(240px)}
+100%{transform:translateX(240px)}
 }
 @keyframes pointsclip{
-0% { transform: translate(120px,0) scale(0) }
-25% { transform: translate(120px,0) scale(0) }
-38% { transform: translate(120px,0) scale(1.0) }
-88% { transform: translate(120px,180px) scale(1.0) }
-100% { transform: translate(120px,180px) scale(0) }
+  0%{transform:translateX(-240px)}
+ 30%{transform:translateX(-240px)}
+ 35%{transform:translateX(0)}
+ 95%{transform:translateX(0)}
+100%{transform:translateX(240px)}
 }
 </style>
 <rect x="0" y="0" width="240" height="180" fill="#f9f9f9" />
 <clipPath id="tilesclip">
-  <circle x="120" r="217"/>
+  <path d="M 0 0 L 240 0 L 240 180 L 0 180 z" />
 </clipPath>
 <clipPath id="pointsclip">
-  <circle x="120" r="217"/>
+  <path d="M 0 0 L 240 0 L 240 180 L 0 180 z" />
 </clipPath>
 <g id="tiles" clip-path="url(#tilesclip)" stroke="gray" stroke-width="0.5" fill="none">
 <polygon points="177.765381,-8.646176 174.765381,-3.450024 168.765381,-3.450024 168.765381,2.549975 173.961533,5.549976 170.961533,10.746129 173.961533,15.942281 179.157684,12.942281 179.157684,6.942281 185.157684,6.942281 188.157684,1.746129 191.157684,-3.450023 188.157684,-8.646175 182.961533,-5.646176"/>

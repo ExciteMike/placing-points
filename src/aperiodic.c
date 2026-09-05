@@ -193,7 +193,7 @@ static const float RIGHT = WIDTH+MARGIN; /** cull tiles outside of this box */
 static const float TOP = -MARGIN; /** cull tiles outside of this box */
 static const float BOTTOM = HEIGHT+MARGIN; /** cull tiles outside of this box */
 static const char* POINT_RADIUS = "2";
-static const char* ANIM_DURATION = "2s";
+static const char* ANIM_DURATION = "10s";
 
 /** geometry of the spectre tile */
 const Pt SPECTRE[N_SPECTRE_VERTICES] = {
@@ -507,27 +507,36 @@ int main() {
     );
 
     fprintf(f, "\n<style type=\"text/css\">");
-    fprintf(f, "\n#tiles{animation:tilestroke %s linear infinite}", ANIM_DURATION);
-    fprintf(f, "\n#points circle{animation:pointradius %s linear infinite}", ANIM_DURATION);
-    fprintf(
-        f,
-        "\n@keyframes tilestroke{0%%{stroke-width:0} 7%%{stroke-width:%s} 50%%{stroke-width:%s} 93%%{stroke-width:0)}",
-        STROKE_WEIGHT,
-        STROKE_WEIGHT
-    );
-    fprintf(
-        f,
-        "\n@keyframes pointradius{0%%{r:0} 14%%{r:%s} 93%%{r:%s) 100%%{r:0}}",
-        POINT_RADIUS,
-        POINT_RADIUS
-    );
+    fprintf(f, "\n#tilesclip{animation:tilesclip %s linear infinite}", ANIM_DURATION);
+    fprintf(f, "\n#pointsclip{animation:pointsclip %s linear infinite}", ANIM_DURATION);
+    fprintf(f, "\n@keyframes tilesclip{");
+    fprintf(f, "\n0%% { transform: translate(%dpx,0) scale(0) }", WIDTH/2);
+    fprintf(f, "\n13%% { transform: translate(%dpx,0) scale(1.0) }", WIDTH/2);
+    fprintf(f, "\n63%% { transform: translate(%dpx,%dpx) scale(1.0) }", WIDTH/2, HEIGHT);
+    fprintf(f, "\n75%% { transform: translate(%dpx,%dpx) scale(0) }", WIDTH/2, HEIGHT);
+    fprintf(f, "\n100%% { transform: translate(%dpx,0) scale(0) }", WIDTH/2);
+    fprintf(f, "\n}");
+    fprintf(f, "\n@keyframes pointsclip{");
+    fprintf(f, "\n0%% { transform: translate(%dpx,0) scale(0) }", WIDTH/2);
+    fprintf(f, "\n25%% { transform: translate(%dpx,0) scale(0) }", WIDTH/2);
+    fprintf(f, "\n38%% { transform: translate(%dpx,0) scale(1.0) }", WIDTH/2);
+    fprintf(f, "\n88%% { transform: translate(%dpx,%dpx) scale(1.0) }", WIDTH/2, HEIGHT);
+    fprintf(f, "\n100%% { transform: translate(%dpx,%dpx) scale(0) }", WIDTH/2, HEIGHT);
+    fprintf(f, "\n}");
     fprintf(f, "\n</style>");
         
     fprintf(f, "\n<rect x=\"0\" y=\"0\" width=\"%d\" height=\"%d\" fill=\"%s\" />", WIDTH, HEIGHT, BACKGROUND_COLOR );
-    fprintf(f, "\n<g id=\"tiles\" stroke=\"%s\" stroke-width=\"%s\" fill=\"none\">", SECONDARY_COLOR, STROKE_WEIGHT);
+    fprintf(f, "\n<clipPath id=\"tilesclip\">");
+    float r = ceilf(sqrtf((float) (0.25f*WIDTH*WIDTH + HEIGHT*HEIGHT)));
+    fprintf(f, "\n  <circle x=\"%d\" r=\"%.0f\"/>", WIDTH / 2, r);
+    fprintf(f, "\n</clipPath>");
+    fprintf(f, "\n<clipPath id=\"pointsclip\">");
+    fprintf(f, "\n  <circle x=\"%d\" r=\"%.0f\"/>", WIDTH / 2, r);
+    fprintf(f, "\n</clipPath>");
+    fprintf(f, "\n<g id=\"tiles\" clip-path=\"url(#tilesclip)\" stroke=\"%s\" stroke-width=\"%s\" fill=\"none\">", SECONDARY_COLOR, STROKE_WEIGHT);
     write_tiles(&sys.tiles[START_TILE], f, TO_SCREEN, write_tile);
     fprintf(f, "\n</g>");
-    fprintf(f, "\n<g id=\"points\" stroke=\"none\" fill=\"%s\">", PRIMARY_COLOR);
+    fprintf(f, "\n<g id=\"points\" clip-path=\"url(#pointsclip)\" stroke=\"none\" fill=\"%s\">", PRIMARY_COLOR);
     write_tiles(&sys.tiles[START_TILE], f, TO_SCREEN, write_point);
     fprintf(f, "\n</g>");
     fprintf(f, "\n</svg>");

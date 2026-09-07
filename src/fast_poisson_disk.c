@@ -8,7 +8,6 @@
 #include <math.h>
 #include <float.h>
 #include <time.h>
-#include "raylib.h"
 
 #define WRITE_SVG_IMPLEMENTATION
 #include "write_svg.h"
@@ -26,24 +25,25 @@ enum {
     MAX_POINTS = 250,
     MAX_TRIES = 30,
 };
-static const char* PRIMARY_COLOR = "blue"; // interior color of the points
+static const char* PRIMARY_COLOR = "blue"; /* interior color of the points */
 static char *OUT_PATH = "./dist/poisson_disk_test.svg";
 
 
-// entry point
+/** entry point */
 int main() {
+    Pt *data = NULL;
     FILE *f = fopen(OUT_PATH, "w");
     if (NULL == f) {
         fprintf(stderr, "could not open output file \"%s\"\n", OUT_PATH);
-        return 1;
+        goto error;
     }
     
     srand(9899);
     
-    Pt *data = calloc(MAX_POINTS, sizeof(Pt));
+    data = calloc(MAX_POINTS, sizeof(Pt));
     if (NULL == data) {
         fprintf(stderr, "could not allocate space for \"%d\" points\n", MAX_POINTS);
-        return 1;
+        goto error;
     }
     
     size_t num_points = 0;
@@ -57,7 +57,7 @@ int main() {
         &num_points)
     ) {
         fprintf(stderr, "fast poisson disk failed\n");
-        return 1;
+        goto error;
     }
     
     begin_svg(f, WIDTH, HEIGHT);
@@ -67,4 +67,15 @@ int main() {
     free(data);
 
     return 0;
+
+error:
+    if (NULL != f) {
+        end_svg(f);
+        fclose(f);
+    }
+    if (NULL != data) {
+        free(data);
+        data = NULL;
+    }
+    return 1;
 }

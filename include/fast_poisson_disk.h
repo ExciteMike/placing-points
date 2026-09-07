@@ -9,6 +9,7 @@
        #define FAST_POISSON_DISK_IMPLEMENTATION
    in *one* C/CPP file that includes this file.
  */
+#include <stddef.h>
 #include "types.h"
 
 
@@ -56,7 +57,7 @@ int fast_poisson_disk(
 
 #include <math.h>
 #include <stdlib.h>
-
+#include <stdio.h>
 
 /* the algorithm could easily be expanded to handle higher dimensions */
 static const size_t FPD_DIMENSIONS = 2;
@@ -108,16 +109,12 @@ static int fpd_init(
     float width,
     float height,
     float min_dist,
-    size_t max_tries,
-    size_t *out_num_points
+    size_t max_tries
 ) {
     if (NULL == fpd) {
         return 0;
     }    
     if (NULL == buf) {
-        return 0;
-    }
-    if (NULL == out_num_points) {
         return 0;
     }
     const float cell_size = min_dist / sqrt((float)FPD_DIMENSIONS);
@@ -157,12 +154,12 @@ static int fpd_init(
 /* return nonzero if candidate point seems ok */
 static int fpd_distance_check(const FpdState *fpd, const Pt p) {
     const float min_dist_sq = fpd->min_dist_sq;
-    const size_t row = (size_t)floor(p.y / fpd->cell_size);
-    const size_t col = (size_t)floor(p.x / fpd->cell_size);
-    const size_t min_row = (size_t) fpd_max(1, row) - 1;
-    const size_t max_row = (size_t) fpd_min(row + 2, fpd->num_rows - 1);
-    const size_t min_col = (size_t) fpd_max(1, col) - 1;
-    const size_t max_col = (size_t) fpd_min(col + 1, fpd->num_cols - 1);
+    const size_t candidate_row = (size_t)floor(p.y / fpd->cell_size);
+    const size_t candidate_col = (size_t)floor(p.x / fpd->cell_size);
+    const size_t min_row = (size_t) fpd_max(1, candidate_row) - 1;
+    const size_t max_row = (size_t) fpd_min(candidate_row + 2, fpd->num_rows - 1);
+    const size_t min_col = (size_t) fpd_max(1, candidate_col) - 1;
+    const size_t max_col = (size_t) fpd_min(candidate_col + 1, fpd->num_cols - 1);
     for (size_t row=min_row;row<=max_row;++row) {
         for (size_t col=min_col;col<=max_col;++col) {
             const size_t index = row * fpd->num_cols + col;
@@ -250,13 +247,12 @@ static int fpd_insert(FpdState *fpd, Pt p) {
 
     /* advance */
     fpd->count++;
-printf("\n<circle cx=\"%.2f\" cy=\"%.2f\" r=\"2\" fill=\"blue\" />", p.x, p.y);
     return 1;
 }
 
 
 /* nonzero if algorithm is over or buffer is full */
-static int fpd_done(FpdState *fpd) {
+static int fpd_done(const FpdState *fpd) {
     return (fpd->count >= fpd->max_points) || (fpd->list_len == 0);
 }
 
@@ -271,13 +267,9 @@ static int fpd_step(FpdState *fpd) {
     }
     Pt cur = *(fpd->active_list[fpd->list_len - 1]);
 
-printf("\n<circle cx=\"%.2f\" cy=\"%.2f\" r=\"%.2f\" fill=\"none\" stroke=\"gray\" />", cur.x, cur.y, sqrtf(fpd->min_dist_sq) );
-printf("\n<circle cx=\"%.2f\" cy=\"%.2f\" r=\"%.2f\" fill=\"none\" stroke=\"gray\" />", cur.x, cur.y, 2.f*sqrtf(fpd->min_dist_sq) );
-
     size_t tries = 0;
     while (tries++ < fpd->max_tries) {
         Pt candidate = fpd_random_from_annulus(cur, fpd->min_dist_sq);
-printf("\n<circle cx=\"%.2f\" cy=\"%.2f\" r=\"2\" fill=\"gray\" />", candidate.x, candidate.y);
         if ((0.f <= candidate.x) &&
             (candidate.x <= fpd->width) && 
             (0.f <= candidate.y) &&
@@ -305,8 +297,6 @@ int fast_poisson_disk(
     size_t max_tries,
     size_t *out_num_points
 ) {
-printf("\n<svg width=\"%.2f\" height=\"%.2f\" xmlns=\"http://www.w3.org/2000/svg\">", width, height);
-
     *out_num_points = 0;
 
     /* early out: if asked for nothing, do nothing */
@@ -322,8 +312,7 @@ printf("\n<svg width=\"%.2f\" height=\"%.2f\" xmlns=\"http://www.w3.org/2000/svg
         width,
         height,
         min_dist,
-        max_tries,
-        out_num_points)
+        max_tries)
     ) {
         fpd_cleanup(&fpd);
         return 0;
@@ -347,7 +336,6 @@ printf("\n<svg width=\"%.2f\" height=\"%.2f\" xmlns=\"http://www.w3.org/2000/svg
 
     *out_num_points = fpd.count;
     fpd_cleanup(&fpd);
-printf("\n</svg>");
     return 1;
 }
 

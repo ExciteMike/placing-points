@@ -2,10 +2,14 @@
   <head>
     <meta charset="UTF-8">
     <title>Placing Points: Fast Poisson Disk</title>
+    <link href="prism.css" rel="stylesheet"/>
     <style>
       @font-face{
         font-family:'Noto Serif';
         src: url('NotoSerif-VariableFont_wdth,wght.ttf');
+      }
+      :root {
+        --code-bg: #F5F2F0;
       }
       html, body {
         font-family: 'Noto Serif', sans-serif;
@@ -71,6 +75,7 @@
         color: slategray;
         padding: 8px;
         margin-left: 8px;
+        font-size: 16px;
         h2 {
             margin:0;
             font-size: 16px;
@@ -81,10 +86,17 @@
         }
         ol {
             margin:8px 0 0 0;
-            padding-left: 16px;
-        }
-        li ol {
-            margin: 0;
+            padding: 0 0 0 8px;
+            li {
+              display: block;
+              ol {
+                margin: 0;
+                padding: 0 0 0 8px;
+                li {
+                  display: block;
+                }
+              }
+            }
         }
       }
       section > h2:nth-child(1) > a {
@@ -93,6 +105,71 @@
       }
       dfn {
         border-bottom: 1px dotted black;
+      }
+      .paramstable {
+        border-collapse: collapse;
+      }
+      .paramstable > tbody > tr > td:nth-child(1) {
+        text-wrap: nowrap;
+        padding-right: 8px;
+      }
+      .paramstable > tbody > tr > td {
+        vertical-align: top;
+      }
+      .paramstable > tbody > tr:nth-child(odd) {
+        background-color: var(--code-bg);
+      }
+      pre {
+        background-color: var(--code-bg);
+        border-left: 2px solid #ccc;
+        padding: 8px;
+        margin-left: 8px;
+      }
+      .tabs {
+        display: flex;
+        flex-wrap: wrap;
+      }
+      .tabs input[type="radio"] {
+        appearance: none;
+        display: inline-block;
+        cursor: pointer;
+        border-left: 2px solid #ccc;
+        border-top: 1px solid #ccc;
+        margin: 0;
+        padding: 7px 8px 0 8px;
+        background-color: #f9f9f9;
+      }
+      .tabs input[type="radio"]::before {
+        content: "○";
+      }
+      .tabs input[type="radio"]:checked {
+        background-color: var(--code-bg);
+      }
+      .tabs input[type="radio"]:checked::before {
+        content: "●";
+      }
+      .tabs label {
+        cursor: pointer;
+        display: inline-block;
+        padding: 4px;
+        border-top: 1px solid #ccc;
+        border-right: 1px solid #ccc;
+        background-color: var(--code-bg);
+        min-width: 65px;
+        background-color: #f9f9f9;
+      }
+      .tabs pre {
+        display: none;
+        order: 99;
+        width:100%;
+        margin: 0;
+      }
+      .tabs input[type="radio"]:checked + label {
+        font-weight: bold;
+        background-color: var(--code-bg);
+      }
+      .tabs input[type="radio"]:checked + label + pre {
+        display: block;
       }
     </style>
   </head>
@@ -111,9 +188,15 @@
                 <li><a href="#colors-of-noise">Colors of Noise</a></li>
                 <li><a href="#possible-approaches">Possible Approaches</a>
                     <ol>
-                        <a href="#jittered-grid">Jittered Grid</a>
+                      <li><a href="#jittered-grid">Jittered Grid</a></li>
+                      <li><a href="#dart-throwing">Dart Throwing</a></li>
+                      <li><a href="#mitchells-best-candidate">Mitchell's Best Candidate</a></li>
+                      <li><a href="#more-exotic-approaches">More Exotic Approaches</a></li>
+                      <li><a href="#inputs-to-the-algorithm">Inputs to the Algorithm</a></li>
+                      <li><a href="#step-zero-initialization">Step 0. Initialization</a></li>
                     </ol>
                 </li>
+                <li><a href="#fast-poisson-disk-sampling">Fast Poisson Disk Sampling</a></li>
             </ol>
         </div>
         <section>
@@ -173,7 +256,7 @@
             </figure>
           </div>
 
-          <h3>Dart Throwing</h3>
+          <h3><a id="dart-throwing"></a>Dart Throwing</h3>
           <p>We can just "throw darts" at the region and use those points. By which I mean that for each coordinate of a point, we just take a uniform random variable scaled to match the size of the region. This generates a white noise distribution with the clumping and gapping problems as seen at the top of this article. But if we reject darts that get within some radius of other darts, the revised process gives us much better results, at the cost of needing to throw very many more darts, depending on how dense the packing we need is relative to the radius.</p>
           <div class="threecolumns">
             <figure>
@@ -182,7 +265,7 @@
             </figure>
           </div>
 
-          <h3>Mitchell's Best Candidate</h3>
+          <h3><a id="mitchells-best-candidate"></a>Mitchell's Best Candidate</h3>
           <p>The Mitchell's Best Candidate approach is a variation of dart throwing. Instead of throwing darts one at a time and rejecting them, we throw in batches and keep only the best dart of each batch. "Best" in this case means the one that is farthest from all previously accepted points. This can become quite slow as the number of accepted points grows, but it does produce good results.</p>
           <div class="threecolumns">
             <figure>
@@ -191,7 +274,7 @@
             </figure>
           </div>
 
-          <h3>More Exotic Approaches</h3>
+          <h3><a id="more-exotic-approaches"></a>More Exotic Approaches</h3>
           <p>People have come up with many ways to do this with various advantages and disadvantages. Tile-based methods make a library of smaller distributions of blue noise then combine them to fill larger regions. An <dfn title="An aperiodic tiling can cover the whole surface without ever perfectly repeating">aperiodic tiling</dfn> such as Penrose tilings can be used as the basis for the points. Points generated by other methods can be <dfn title="iteratively adjusted to spread them out more evenly">relaxed</dfn> to produce a smoother distribution. I'm sure there are more that I didn't think of!</p>
           <div class="threecolumns">
             <figure>
@@ -209,23 +292,85 @@
           </div>
         </section>
         <section>
-          <h2>Fast Poisson Disk Sampling</h2>
+          <h2><a id="fast-poisson-disk-sampling"></a>Fast Poisson Disk Sampling</h2>
           <p>The fast Poisson disk method from <cite><a href="./bridson-siggraph07-poissondisk.pdf">Bridson's paper</a></cite> seems to have become the most common approach. It uses a couple of clever tricks to operate in linear time (in the number of points generated) and still produce high-quality results.</p>
-          <p>At a high level, the process starts from one arbitrary seed point in the region. Future points are then generated by testing candidate points chosen from an <dfn title="an annulus is the &quot;ring&quot;-shaped region bounded by two concentric circles">annulus</dfn> around previously accepted points. It continues until the region gets too crowded to find more.</p>
+          <p>The process starts from one arbitrary seed point in the region. Future points are then generated by testing candidate points chosen from an <dfn title="an annulus is the &quot;ring&quot;-shaped region bounded by two concentric circles">annulus</dfn> around previously accepted points. It continues until the region gets too crowded to find more.</p>
           <p>There are two tricks to make this process fast. The region is divided into a grid that allows the distance testing to consider only very few points. It also tracks a list of "active" points that can still serve as the basis for future candidates, removing points from the list as the space around them fills.</p>
           <p>Bridson's algorithm works in any number of dimensions, but for simplicity I present it here in only two.</p>
-          <h3>Inputs to the Algorithm</h3>
+          <h3><a id="data-structures"></a>Data Structures</h3>
+          <p>In this implementation, there is one new type that the caller of the <code>fast_poisson_disk</code> function needs to know. It's just two floats, casted or swapped out with the similar type you are probably already using.</p>
+          <div class="tabs">
+            <input type="radio" id="pt" name="tab-group-pt" checked>
+            <label for="pt">C</label>
+            <pre><code class="language-c">/** a point in two dimensions */
+typedef union Pt {
+   float raw[2];
+   struct {
+        float x;
+        float y;   
+   };
+} Pt;</code></pre>
+          </div>
+          <p>Internally, we must maintain a grid structure and list of active points. The <code>FpdState</code> combines those, the settings, and the output into one package for convenience.</p>
+          <div class="tabs">
+            <input type="radio" id="fpdstate" name="tab-group-fpdstate" checked>
+            <label for="fpdstate">C</label>
+            <pre><code class="language-c">typedef struct FpdState {
+      float *write_head;
+      float *buf_end;
+      float width;
+      float height;
+      float min_dist;
+
+      /* Grid: index by `(row * num_cols) + col` to get a pointer to the first 
+         of the pair of coords for the point in that grid square or NULL */
+      float **grid;
+
+      /* cell size chosen to make sure no more than one point can fit in a cell.
+         NOTE: if adapting this for dimensions other than 2, change that sqrt(2) 
+         to sqrt(num_dimensions) */
+      float cell_size;
+
+      size_t num_rows;
+      size_t num_cols;
+
+      /* each item in the list points to the first of the coords for a point */
+      float **active_list;
+      size_t list_len;
+      size_t max_tries;
+
+      size_t count;
+  } FpdState;</code></pre>
+          </div>
+          <h3><a id="inputs-to-the-algorithm"></a>Inputs to the Algorithm</h3>
           <p>Our fast Poisson disk function takes the following inputs:
-            <dl>
-                <dt><code>width</code>, <code>height</code></dt>
-                <dd>The size of the region.</dd>
-                <dt><code>min_dist</code></dt>
-                <dd>The minimum allowed distance between points.</dd>
-                <dt><code>max_points</code></dt>
-                <dd>An upper limit on the number of generated points.</dd>
-                <dt><code>max_tries</code></dt>
-                <dd>A maximum number of consecutive candidate rejections before a point is removed from the active list. 30 is a common value for this parameter.</dd>
-            </dl>
+            <table class="paramstable">
+              <tr>
+                <td><code>width</code>, <code>height</code></td>
+                <td>The size of the region.</td>
+              </tr>
+              <tr>
+                <td><code>min_dist</code></td>
+                <td>The minimum allowed distance between points.</td>
+              </tr>
+              <tr>
+                <td><code>min_dist</code></td>
+                <td>The minimum allowed distance between points.</td>
+              </tr>
+              <tr>
+                <td><code>max_points</code></td>
+                <td>An upper limit on the number of generated points.</td>
+              </tr>
+              <tr>
+                <td><code>max_tries</code></td>
+                <td>A maximum number of consecutive candidate rejections before a point is removed from the active list. 30 is a common value for this parameter.</td>
+              </tr>
+            </table>
+            </ul>
+          </p>
+          <h3><a id="step-zero-initialization"></a>Step 0. Initialization</h3>
+          <p>
+            
           </p>
           <h3>TODO</h3>
           <ul>
@@ -262,13 +407,14 @@
 
   TODO: link to the github
   TODO: images with different settings
+  TODO: link to github
         </section>
-        <!-- <section class="references">
+        <section class="references">
           <h2>References</h2>
           <ol>
             <li><cite>Robert Bridson. 2007. Fast Poisson disk sampling in arbitrary dimensions. In ACM SIGGRAPH 2007 sketches (SIGGRAPH '07). Association for Computing Machinery, New York, NY, USA, 22–es. <a href="https://doi.org/10.1145/1278780.1278807">https://doi.org/10.1145/1278780.1278807</a></cite></li>
           </ol>
-        </section> -->
+        </section>
       </article>
       <hr/>
       <section>
@@ -286,5 +432,6 @@
         <a href="https://ko-fi.com/excitemike/tip"><img src="https://storage.ko-fi.com/cdn/logomarkLogo.png" alt="Ko-fi tips" style="object-fit: contain;max-height:1em" width="16" height="16"> Ko-fi</a>
       </section>
     </main>
+    <script src="prism.js"></script>
   </body>
 </html>

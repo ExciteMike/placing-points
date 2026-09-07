@@ -315,32 +315,33 @@ typedef union Pt {
           <div class="tabs">
             <input type="radio" id="fpdstate" name="tab-group-fpdstate" checked>
             <label for="fpdstate">C</label>
-            <pre><code class="language-c">typedef struct FpdState {
-      float *write_head;
-      float *buf_end;
-      float width;
-      float height;
-      float min_dist;
+            <pre><code class="language-c">/** everything we need to track as we step the algorithm */
+typedef struct FpdState {
+    Pt *buf;
+    size_t buf_size;
+    float width;
+    float height;
+    float min_dist_sq;
+    size_t max_tries;
+    size_t max_points;
+    size_t count;
 
-      /* Grid: index by `(row * num_cols) + col` to get a pointer to the first 
-         of the pair of coords for the point in that grid square or NULL */
-      float **grid;
+    /** Grid: index by `(row * num_cols) + col` to get a pointer to the first 
+       of the pair of coords for the point in that grid square or NULL */
+    Pt **grid;
 
-      /* cell size chosen to make sure no more than one point can fit in a cell.
-         NOTE: if adapting this for dimensions other than 2, change that sqrt(2) 
-         to sqrt(num_dimensions) */
-      float cell_size;
+    /** cell size chosen to make sure no more than one point can fit in a cell.
+       NOTE: if adapting this for dimensions other than 2, change that sqrt(2) 
+       to sqrt(num_dimensions) */
+    float cell_size;
 
-      size_t num_rows;
-      size_t num_cols;
+    size_t num_rows;
+    size_t num_cols;
 
-      /* each item in the list points to the first of the coords for a point */
-      float **active_list;
-      size_t list_len;
-      size_t max_tries;
-
-      size_t count;
-  } FpdState;</code></pre>
+    /* each item in the list points to the first of the coords for a point */
+    Pt **active_list;
+    size_t list_len;
+} FpdState;</code></pre>
           </div>
           <h3><a id="inputs-to-the-algorithm"></a>Inputs to the Algorithm</h3>
           <p>Our fast Poisson disk function takes the following inputs:

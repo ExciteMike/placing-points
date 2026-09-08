@@ -20,15 +20,16 @@ enum {
     MIN_DIST_SQ = MIN_DIST*MIN_DIST,
     MAX_DIST_SQ = MAX_DIST*MAX_DIST,
     POINT_RADIUS = 5,
-    MAX_POINTS = 250,
-    MAX_TRIES = 30,
+    CANDIDATE_RADIUS = 4,
+    MAX_POINTS = 40,
+    MAX_TRIES = 4,
     MAX_COLS = 14,
     MAX_ROWS = 11,
     PATH_BUF_LEN = 32,
     SEED = 20260907,
     ANIMATION_LENGTH = 30,
     MAX_CANDIDATES = MAX_POINTS * MAX_TRIES, /* a lot smaller in practice if I want to optimize */
-    PAUSE_FRAMES = 25,
+    PAUSE_FRAMES = 40,
     ANNULUS_OUTLINE_WIDTH = 1
 };
 static const char* POINT_COLOR = "blue";
@@ -89,11 +90,19 @@ typedef struct Fpd {
 } Fpd;
 
 
+/** information needed to render a candidate point */
+typedef struct CandidateData {
+    size_t parent_idx;
+    StartEnd times;
+    Pt p;
+} CandidateData;
+
+
 /** data from which to generate the SVG */
 typedef struct Script {
     RowFillFrames grid[MAX_ROWS];
     StartEnd annuli[MAX_POINTS];
-    StartEnd candidates[MAX_CANDIDATES];
+    CandidateData candidates[MAX_CANDIDATES];
     size_t n_candidates;
     Pt pts[MAX_POINTS];
     size_t point_times[MAX_POINTS];
@@ -119,8 +128,12 @@ static Pt random_from_annulus(const Pt p);
 static void render_grid_squares_css(FILE *f, const Script *script);
 static void render_points_css(FILE *f, const Script *script);
 static void script_activate_last_point(Script *script);
+static size_t script_add_candidate(Script *script, Pt p, size_t parent_pt_idx);
 static void script_add_permanent_point(Script *script, Pt p);
+static void script_clear_candidate(Script *script, size_t idx);
 static void script_fill_grid_space(Script *script, size_t row, size_t col);
+static float time_warp(float);
+
 
 /** build up a script that can be used to render out what all it did */
 static void build_script(Script *script) {
@@ -143,7 +156,8 @@ static void build_script(Script *script) {
 static float calc_pct(size_t n, size_t d) {
     n = min(n, d);
     d = max(1, d);
-    return 100.f * (float)n / (float)d;
+    float linear = (float)n / (float)d;
+    return 100.f * time_warp(linear);
 }
 
 
@@ -212,31 +226,49 @@ static float dist_sq(const Pt p1, const Pt p2) {
 }
 
 
+/** custom ease function for overall timing */
+static float time_warp(float t) {
+    /*float t_sq = t*t;
+    float t_cu = t*t*t;*/
+    return t;/*0.5f*t_cu - 1.5f*t_sq + 2.f*t;*/
+}
+
+
 /**
  * one step of the fpd algorithm. it will either insert a new point
  * or pop an active point
  */
 static void fpd_step(Fpd *fpd, Script *script) {
     if (fpd->n_active < 1) { return; }
-    size_t pt_idx = fpd->active[fpd->n_active-1];
-    Pt cur = fpd->pts[pt_idx];
+    size_t cur_pt_idx = fpd->active[fpd->n_active-1];
+    Pt cur = fpd->pts[cur_pt_idx];
+    size_t new_candidates_begin = script->n_candidates;
+    size_t new_candidates_end = script->n_candidates;
 
     size_t tries = 0;
     while (tries++ < MAX_TRIES) {
         Pt candidate = random_from_annulus(cur);
+        new_candidates_end = script_add_candidate(script, candidate, cur_pt_idx)+1;
         if ((0.f <= candidate.x) &&
             (candidate.x <= (float)WIDTH) && 
             (0.f <= candidate.y) &&
             (candidate.y <= (float)HEIGHT) &&
             distance_check(fpd, candidate)
         ) {
+            for (size_t candidate_idx=new_candidates_begin;candidate_idx<new_candidates_end;++candidate_idx) {
+                script_clear_candidate(script, candidate_idx);
+            }
             insert_point(fpd, script, candidate);
             return;
         }
     }
 
+    for (size_t candidate_idx=new_candidates_begin;candidate_idx<new_candidates_end;++candidate_idx) {
+        script_clear_candidate(script, candidate_idx);
+    }
+
     /* retry limit exceeded, remove from active list */
-    script->annuli[pt_idx].end = script->n_frames++;
+    script->annuli[cur_pt_idx].end = script->n_frames++;
     fpd->n_active--;
 }
 
@@ -250,33 +282,6 @@ static void init_fpd(Fpd *fpd) {
             fpd->grid.rows[row].cells[col] = SIZE_MAX;
         }
     }
-}
-
-
-/** choose a starting point */
-static Pt rand_pt() {
-    return (Pt) { rand_range(0, WIDTH), rand_range(0, HEIGHT) };
-}
-
-
-/** random float from the given range */
-static float rand_range(const float min, const float max) {
-    return min + (max - min) * ((float)rand())/((float)RAND_MAX);
-}
-
-
-/* Given a point `p`, select a random point in an annulus
-   centered on `p`, with an inner radius equal to the 
-   minimum radius and an outer radius twice the minimum radius. */
-static Pt random_from_annulus(const Pt p) {
-    float TAU = 2.f * 3.14159265358979323846;
-    float a = rand_range(0, TAU);
-    float r_sq = rand_range((float)MIN_DIST_SQ, 4.f * (float)MAX_DIST_SQ);
-    float r = sqrtf(r_sq);
-    return (Pt) {
-        p.x + r * cosf(a),
-        p.y + r * sinf(a)
-    };
 }
 
 
@@ -306,6 +311,33 @@ static void insert_point(Fpd *fpd, Script *script, Pt p) {
 
 static size_t min(size_t a, size_t b) { return (a<b)?a:b; }
 static size_t max(size_t a, size_t b) { return (a>b)?a:b; }
+
+
+/** choose a starting point */
+static Pt rand_pt() {
+    return (Pt) { rand_range(0, WIDTH), rand_range(0, HEIGHT) };
+}
+
+
+/** random float from the given range */
+static float rand_range(const float min, const float max) {
+    return min + (max - min) * ((float)rand())/((float)RAND_MAX);
+}
+
+
+/* Given a point `p`, select a random point in an annulus
+   centered on `p`, with an inner radius equal to the 
+   minimum radius and an outer radius twice the minimum radius. */
+static Pt random_from_annulus(const Pt p) {
+    float TAU = 2.f * 3.14159265358979323846;
+    float a = rand_range(0, TAU);
+    float r_sq = rand_range((float)MIN_DIST_SQ, (float)MAX_DIST_SQ);
+    float r = sqrtf(r_sq);
+    return (Pt) {
+        p.x + r * cosf(a),
+        p.y + r * sinf(a)
+    };
+}
 
 
 /** write out the css for the rings around active points */
@@ -353,13 +385,49 @@ static void render_annuli(FILE *f, const Script *script) {
 }
 
 
+/** write out the CSS to animate the candidate points */
+static void render_candidates_css(FILE *f, const Script *script) {
+    for (size_t idx=0;idx<script->n_candidates;++idx) {
+        const CandidateData *data = &(script->candidates[idx]);
+        size_t frame1 = min(script->n_frames-1, data->times.start);
+        size_t frame2   = min(script->n_frames-1, frame1+1);
+        size_t frame3   = min(script->n_frames-1, data->times.end);
+        size_t frame4     = min(script->n_frames-1, frame3+1);
+        float pct1 = calc_pct(frame1, script->n_frames);
+        float pct2 = calc_pct(frame2, script->n_frames);
+        float pct3 = calc_pct(frame3, script->n_frames);
+        float pct4 = calc_pct(frame4, script->n_frames);
+
+        fprintf(f, "\n#c%03zu{animation:c%03zu %ds linear infinite}", idx, idx, ANIMATION_LENGTH);
+        fprintf(f, "\n@keyframes c%03zu {", idx);
+        fprintf(f, "\n0%%,%.2f%%,%.2f%%,100%%{r:0}", pct1, pct4);
+        fprintf(f, "\n%.2f%%,%.2f%%{r:%dpx}", pct2, pct3, CANDIDATE_RADIUS);
+        fprintf(f, "\n}");
+    }
+}
+
+
+/** write out the svg for the candidate points */
+static void render_candidates(FILE *f, const Script *script) {
+    fprintf(f, "\n<g fill=\"%s\">", CANDIDATE_COLOR);
+    for (size_t idx=0;idx<script->n_candidates;++idx) {
+        Pt p = script->candidates[idx].p;
+        fprintf(f, "\n<circle id=\"c%03zu\"", idx);
+        fprintf(f,          " cx=\"%.2f\"", p.x);
+        fprintf(f,          " cy=\"%.2f\"", p.y);
+        fprintf(f,          " r=\"%d\" />", CANDIDATE_RADIUS);
+    }
+    fprintf(f, "\n</g>");
+}
+
+
 /** write out the CSS needed to animate the SVG. returns nonzero if succesful */
 static void render_css(FILE *f, const Script *script) {
     fprintf(f, "\n<style type=\"text/css\">");
     render_grid_squares_css(f, script);
     /* parentage lines */
     render_annuli_css(f, script);
-    /* candidates */
+    render_candidates_css(f, script);
     /* points */
     render_points_css(f, script);
     /* active list */
@@ -376,7 +444,7 @@ static void render_grid_squares_css(FILE *f, const Script *script) {
             size_t frame = script->grid[row].cells[col];
             if (frame == SIZE_MAX) { continue; }
             char name[NAME_BUF_LEN] = {'\0'};
-            snprintf(name, NAME_BUF_LEN, "r%02zuc%02zu", row, col);
+            snprintf(name, NAME_BUF_LEN, "r%02zuc%03zu", row, col);
             fprintf(f, "\n#%s {animation:%s %ds linear infinite}", name, name, ANIMATION_LENGTH);
             fprintf(f, "\n@keyframes %s {", name);
             float pct1 = calc_pct(frame, script->n_frames);
@@ -400,7 +468,7 @@ static void render_grid_squares(FILE *f, const Script *script) {
         for (size_t col=0;col<MAX_COLS;++col) {
             size_t frame = script->grid[row].cells[col];
             if (frame == SIZE_MAX) { continue; }
-            fprintf(f, "\n<rect id=\"r%02zuc%02zu\"", row, col);
+            fprintf(f, "\n<rect id=\"r%02zuc%03zu\"", row, col);
             fprintf(f,        " x=\"%.2f\"", col * CELL_SIZE);
             fprintf(f,        " y=\"%.2f\"", row * CELL_SIZE);
             fprintf(f,        " width=\"%.2f\"", CELL_SIZE);
@@ -431,7 +499,7 @@ static void render_points_css(FILE *f, const Script *script) {
 
 
 /** write out the svg for the points */
-static void render_points(FILE *f, Script *script) {
+static void render_points(FILE *f, const Script *script) {
     fprintf(f, "\n<g fill=\"%s\">", POINT_COLOR);
     for (size_t idx=0;idx<script->n_points;++idx) {
         Pt p = script->pts[idx];
@@ -445,7 +513,7 @@ static void render_points(FILE *f, Script *script) {
 
 
 /** write out an SVG. returns nonzero if succesful */
-static int render_script(const char *path, Script *script) {
+static int render_script(const char *path, const Script *script) {
     FILE *f = fopen(path, "w");
     if (NULL == f) {
         fprintf(stderr, "could not open output file \"%s\"\n", path);
@@ -457,10 +525,8 @@ static int render_script(const char *path, Script *script) {
     render_css(f, script);
     render_annuli(f, script);
     render_grid_squares(f, script);
-    /*render lines*/
+    render_candidates(f, script);
     render_points(f, script);
-    /* render active */
-    /* rander candidates */
 
     fprintf(f, "\n</svg>");
     fclose(f);
@@ -480,6 +546,21 @@ static void script_activate_last_point(Script *script) {
     script->annuli[script->n_points-1].start = script->n_frames++;
 }
 
+
+/** record a candidate point appearing. returns an index you can use to mark its end, or SIZE_MAX if something goes wrong */
+static size_t script_add_candidate(Script *script, Pt p, size_t parent_pt_idx) {
+    size_t n = script->n_candidates;
+    if (n >= MAX_CANDIDATES) { return SIZE_MAX; }
+    script->candidates[n].parent_idx = parent_pt_idx;
+    script->candidates[n].times.start = script->n_frames;
+    script->candidates[n].times.end = SIZE_MAX;
+    script->candidates[n].p = p;
+    ++(script->n_candidates);
+    ++(script->n_frames);
+    return n;
+}
+
+
 /** record a permanent point appearing */
 static void script_add_permanent_point(Script *script, Pt p) {
     size_t n_pts = script->n_points;
@@ -490,6 +571,16 @@ static void script_add_permanent_point(Script *script, Pt p) {
     script->annuli[n_pts].end = SIZE_MAX;
     ++(script->n_points);
     ++(script->n_frames);
+}
+
+
+/**
+ * Record the removal of a candidate.
+ * NOTE: unlike most script functions, this does not bump n_frames
+ */
+static void script_clear_candidate(Script *script, size_t idx) {
+    if (idx >= script->n_candidates) { return; }
+    script->candidates[idx].times.end = script->n_frames;
 }
 
 
@@ -507,8 +598,8 @@ static void script_fill_grid_space(Script *script, size_t row, size_t col) {
 int main() {
     srand(SEED);
     Script script;
-    if (!config_check()) { return 0; }
+    if (!config_check()) { return 1; }
     build_script(&script);
     render_script(OUT_PATH, &script);
-    return 1;
+    return 0;
 }

@@ -20,7 +20,7 @@ enum {
     MIN_DIST_SQ = MIN_DIST*MIN_DIST,
     MAX_DIST_SQ = MAX_DIST*MAX_DIST,
     POINT_RADIUS = 5,
-    MAX_POINTS = 3,
+    MAX_POINTS = 250,
     MAX_TRIES = 30,
     MAX_COLS = 14,
     MAX_ROWS = 11,
@@ -32,8 +32,8 @@ enum {
     ANNULUS_OUTLINE_WIDTH = 1
 };
 static const char* POINT_COLOR = "blue";
-static const char* ANNULUS_FILL_COLOR = "ghostwhite";
-static const char* ANNULUS_BORDER_COLOR = "gray";
+static const char* ANNULUS_FILL_COLOR = "#eee";
+static const char* ANNULUS_BORDER_COLOR = "#ccc";
 static const char* CANDIDATE_COLOR = "gray";
 static const char* BACKGROUND_COLOR = "#f9f9f9";
 static const char* GRID_SQUARE_COLOR = "gray";
@@ -337,14 +337,14 @@ static void render_annuli(FILE *f, const Script *script) {
     for (size_t idx=0;idx<script->n_points;++idx) {
         Pt p = script->pts[idx];
         fprintf(f, "\n<path d=\"");
-        fprintf(f, "M %.1f %.1f", p.x, p.y - outer_radius);
-        fprintf(f, "A %.1f %.1f 0 1 0 %.1f %.1f", outer_radius, outer_radius, p.x, p.y + outer_radius);
-        fprintf(f, "A %.1f %.1f 0 1 0 %.1f %.1f", outer_radius, outer_radius, p.x, p.y - outer_radius);
-        fprintf(f, "Z");
-        fprintf(f, "M %.1f %.1f", p.x, p.y - inner_radius);
-        fprintf(f, "A %.1f %.1f 0 1 0 %.1f %.1f", inner_radius, inner_radius, p.x, p.y + inner_radius);
-        fprintf(f, "A %.1f %.1f 0 1 0 %.1f %.1f", inner_radius, inner_radius, p.x, p.y - inner_radius);
-        fprintf(f, "Z");
+        fprintf(f, "M %.1f %.1f ", p.x, p.y - outer_radius);
+        fprintf(f, "A %.1f %.1f 0 1 0 %.1f %.1f ", outer_radius, outer_radius, p.x, p.y + outer_radius);
+        fprintf(f, "A %.1f %.1f 0 1 0 %.1f %.1f ", outer_radius, outer_radius, p.x, p.y - outer_radius);
+        fprintf(f, "Z ");
+        fprintf(f, "M %.1f %.1f ", p.x, p.y - inner_radius);
+        fprintf(f, "A %.1f %.1f 0 1 1 %.1f %.1f ", inner_radius, inner_radius, p.x, p.y + inner_radius);
+        fprintf(f, "A %.1f %.1f 0 1 1 %.1f %.1f ", inner_radius, inner_radius, p.x, p.y - inner_radius);
+        fprintf(f, "Z ");
         fprintf(f, "\"");
         fprintf(f, " id=\"a%02zu\"", idx);
         fprintf(f, " />");

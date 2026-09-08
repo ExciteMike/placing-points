@@ -32,12 +32,9 @@ static const char* ANIM_DURATION = "10s";
 
 
 /** 2d point coordinates */
-typedef union Pt {
-	 float raw[2];
-	 struct {
-		  float x;
-		  float y;   
-	 };
+typedef struct Pt {
+	float x;
+	float y;
 } Pt;
 
 
@@ -81,7 +78,7 @@ static float dist(Pt p1, Pt p2) {
 /** return the index of the point in the keyframe nearest the reference pt. or SIZE_MAX if the keyframe is empty */
 static size_t find_nearest(Pt ref_pt, Keyframe *kf) {
     size_t ret = SIZE_MAX;
-    Pt *pts = &(kf->pts[0]); 
+    const Pt *pts = &(kf->pts[0]); 
     float best = FLT_MAX;
     for (size_t pt_idx=0;pt_idx<N_POINTS;++pt_idx) {
         Pt candidate = pts[pt_idx];
@@ -100,10 +97,10 @@ static void fill_grid(Grid *grid, Keyframe *kf) {
     for (size_t row=0;row<N_ROWS;++row) {
         GridRow *row_data = &(grid->rows[row]);
         for (size_t col=0;col<N_COLS;++col) {
-            Pt cell_ctr = {{
+            Pt cell_ctr = {
                 ((float)col + 0.5) * (float)CELL_SIZE,
                 ((float)row + 0.5) * (float)CELL_SIZE,
-            }};
+            };
             row_data->cells[col] = find_nearest(cell_ctr, kf);
         }
     }
@@ -118,7 +115,7 @@ static float rand_y() {
 }
 
 static Pt rand_pt() {
-    return (Pt) {{rand_x(), rand_y()}};
+    return (Pt) {rand_x(), rand_y()};
 }
 
 /** create initial point locations */
@@ -152,7 +149,7 @@ static float lerpf(float a, float b, float t) {
     return a + (b-a)*t;
 }
 static Pt lerp_pt(Pt a, Pt b, float t) {
-    return (Pt) {{lerpf(a.x, b.x, t), lerpf(a.y, b.y, t)}};
+    return (Pt) {lerpf(a.x, b.x, t), lerpf(a.y, b.y, t)};
 }
 
 
@@ -161,7 +158,7 @@ static void relax_kf(Keyframe *in_kf, Keyframe *out_kf) {
     Grid grid;
     fill_grid(&grid, in_kf);
 
-    Pt sums[N_POINTS] = {{{0}}};
+    Pt sums[N_POINTS] = {{0}};
     size_t counts[N_POINTS] = {0};
     for (size_t row=0;row<N_ROWS;++row) {
         for (size_t col=0;col<N_COLS;++col) {
@@ -174,7 +171,7 @@ static void relax_kf(Keyframe *in_kf, Keyframe *out_kf) {
         }
     }
 
-    Pt *in_pts = &(in_kf->pts[0]);
+    const Pt *in_pts = &(in_kf->pts[0]);
     Pt *out_pts = &(out_kf->pts[0]);
 
     for (size_t i=0;i<N_POINTS;++i) {
@@ -182,7 +179,7 @@ static void relax_kf(Keyframe *in_kf, Keyframe *out_kf) {
         if (count == 0) {
             out_pts[i] = in_pts[i];
         } else {
-            Pt mean = {{sums[i].x / (float)count, sums[i].y / (float)count}};
+            Pt mean = {sums[i].x / (float)count, sums[i].y / (float)count};
             out_pts[i] = lerp_pt(in_pts[i], mean, RELAX_STRENGTH);
         }
     }
@@ -193,8 +190,8 @@ static void relax_kf(Keyframe *in_kf, Keyframe *out_kf) {
 static void write_animation(FILE *f, AllKfs *data, size_t pt_idx) {
     if (N_KEYFRAMES < 2) { return; }
     Pt ref_pt = data->kfs[N_KEYFRAMES-1].pts[pt_idx];
-    fprintf(f, "\n#pt%04lld{animation:pt%04lld %s linear infinite}", pt_idx, pt_idx, ANIM_DURATION);
-    fprintf(f, "\n@keyframes pt%04lld{", pt_idx);
+    fprintf(f, "\n#pt%04zu{animation:pt%04zu %s linear infinite}", pt_idx, pt_idx, ANIM_DURATION);
+    fprintf(f, "\n@keyframes pt%04zu{", pt_idx);
     int denom = LOOP ? N_KEYFRAMES : (N_KEYFRAMES - 1);
     for (int kf_idx=0;kf_idx<N_KEYFRAMES;++kf_idx) {
         int pct = 100 * kf_idx / denom;
@@ -213,11 +210,12 @@ static void write_animation(FILE *f, AllKfs *data, size_t pt_idx) {
 
 /** write svg for a point */
 static void write_point(FILE *f, size_t id, Pt p) {
-    fprintf(f, "\n<circle id=\"pt%04lld\" cx=\"%f\" cy=\"%f\" r=\"%s\" />", id, p.x, p.y, POINT_RADIUS);
+    fprintf(f, "\n<circle id=\"pt%04zu\" cx=\"%f\" cy=\"%f\" r=\"%s\" />", id, p.x, p.y, POINT_RADIUS);
 }
 
+
 /** write svg for the given points using the given color */
-static void write_points(FILE *f, Pt* pts, size_t n, const char* color) {
+static void write_points(FILE *f, const Pt* pts, size_t n, const char* color) {
     fprintf(f, "\n<g fill=\"%s\" stroke=\"none\">", color);
     for (size_t i=0;i<n;++i) {
         write_point(f, i, pts[i]);
@@ -230,7 +228,7 @@ static void write_points(FILE *f, Pt* pts, size_t n, const char* color) {
 int main() {
 	srand(9911);
 
-	AllKfs data = {{{{{{0}}}}}};
+	AllKfs data = {{{{{0}}}}};
 	randomize_kf(&(data.kfs[0]));
 	for (size_t kf=1;kf<N_KEYFRAMES;++kf) {
 		Keyframe *in_kf = &(data.kfs[kf-1]);
@@ -253,8 +251,8 @@ int main() {
 
     fprintf(f, "\n<rect x=\"0\" y=\"0\" width=\"%d\" height=\"%d\" fill=\"%s\" />", WIDTH, HEIGHT, BACKGROUND_COLOR);
 
-    Keyframe *last_kf = &(data.kfs[N_KEYFRAMES-1]);
-    Pt *last_kf_pts = last_kf->pts;
+    const Keyframe *last_kf = &(data.kfs[N_KEYFRAMES-1]);
+    const Pt *last_kf_pts = last_kf->pts;
     write_points(f, last_kf_pts, N_POINTS, PRIMARY_COLOR);
     fprintf(f, "\n</svg>");
 	fclose(f);

@@ -49,7 +49,7 @@ float candidate_distance(
     float candidate_x,
     float candidate_y,
     float *begin,
-    float *end
+    const float *end
 ) {
     float lowest = FLT_MAX;
     for (float *p=begin; p<end; p+=DIMENSIONS) {
@@ -127,7 +127,7 @@ void write_candidate_dot(
 
 
 /* entry point */
-int main(int argc, const char **argv) {
+int main() {
     srand(9906);
 
     /* where to store generated points*/
@@ -143,6 +143,7 @@ int main(int argc, const char **argv) {
     FILE *f = fopen(OUT_PATH, "w");
     if (NULL == f) {
         fprintf(stderr, "could not open output file \"%s\"", OUT_PATH);
+        free(buf);
         return 1;
     }
     

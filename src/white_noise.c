@@ -94,8 +94,8 @@ int main(int argc, const char **argv) {
     
     begin_svg(f, _width, _height);
     for (int i=0;i<_max_points;++i) {
-        Vector2 p = {.x=rand_x(), .y=rand_y()};
-        write_point(f, p.x, p.y, _point_radius, _point_color);
+        Pt p = {.x=rand_x(), .y=rand_y()};
+        write_point(f, p, _point_radius, _point_color);
     }
     end_svg(f);
     fclose(f);

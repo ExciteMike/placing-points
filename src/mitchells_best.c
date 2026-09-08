@@ -87,7 +87,7 @@ float candidate_distance(
     float candidate_x,
     float candidate_y,
     float *begin,
-    float *end,
+    const float *end,
     float *out_nearest_x,
     float *out_nearest_y
 ) {
@@ -167,7 +167,7 @@ void write_temp_dot(
     float cy,
     float nearest_x,
     float nearest_y,
-    float distance,
+    float distance_to_nearest,
     size_t appear_frame
 ) {
     float frame_duration = 0.5f * ANIM_DURATION / _max_points;
@@ -176,7 +176,7 @@ void write_temp_dot(
     begin_timed_group(file, NULL, NULL, appear_time, disappear_time);
     fprintf(file, "<circle cx=\"%.2f\" cy=\"%.2f\" r=\"%.2f\" fill=\"%s\"/>", cx, cy, _point_radius, _candidate_color);
     fprintf(file, "<line x1=\"%.2f\" y1=\"%.2f\" x2=\"%.2f\" y2=\"%.2f\" stroke=\"%s\"/>", cx, cy, nearest_x, nearest_y, _candidate_color);
-    fprintf(file, "<circle cx=\"%.2f\" cy=\"%.2f\" r=\"%.2f\" stroke=\"%s\" fill=\"none\" stroke-dasharray=\"4\"/>", cx, cy, distance, _candidate_color);
+    fprintf(file, "<circle cx=\"%.2f\" cy=\"%.2f\" r=\"%.2f\" stroke=\"%s\" fill=\"none\" stroke-dasharray=\"4\"/>", cx, cy, distance_to_nearest, _candidate_color);
     end_timed_group(file);
 }
 
@@ -232,6 +232,8 @@ int main(int argc, const char **argv) {
     FILE *f = fopen(_out_path, "w");
     if (NULL == f) {
         fprintf(stderr, "could not open output file \"%s\"", _out_path);
+        coliop_free_results(args_result);
+        free(buf);
         return 1;
     }
     
@@ -250,7 +252,7 @@ int main(int argc, const char **argv) {
         float best_x = -1.f;
         float best_y = -1.f;
         float highest = -1.f;
-        for (size_t i=0;i<_num_candidates;++i) {
+        for (int i=0;i<_num_candidates;++i) {
             float candidate_x = rand_x();
             float candidate_y = rand_y();
             float nearest_x = 0.f;
@@ -271,6 +273,7 @@ int main(int argc, const char **argv) {
 
     end_svg(f);
     fclose(f);
+    coliop_free_results(args_result);
     free(buf);
 
     return 0;

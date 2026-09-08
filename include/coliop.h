@@ -58,25 +58,22 @@ extern void coliop_free_results(ColiopResult*); // free resources
 
 
 void coliop_print_help(
-    ColiopConfig *config,
+    const ColiopConfig *config,
     const char* name,
     FILE* output_stream
 ) {
     fprintf(output_stream, "USAGE: %s [OPTIONS] ...args\n", name);
-    ColiopOption *end_option = config->options + config->num_options;
+    const ColiopOption *end_option = config->options + config->num_options;
     int longest = 0;
-    for (ColiopOption *option= config->options; option!=end_option; option++) {
+    for (const ColiopOption *option= config->options; option!=end_option; option++) {
         int len = strlen(option->name);
         if (len > longest) { longest = len; }
     }
     int descrip_start = longest + 18;
     
-    if (config->num_options <= 0) {
-        return;
-    }
     fprintf(output_stream, "Options:\n");
     fprintf(output_stream, "  -h/--help       Show this message.");
-    for (ColiopOption *option= config->options; option!=end_option; option++) {
+    for (const ColiopOption *option= config->options; option!=end_option; option++) {
         int column = fprintf(output_stream, "  -%c/--%s", option->letter, option->name);
         switch (option->type) {
             case COLIOP_OPTTYPE_NOVALUE:
@@ -114,6 +111,9 @@ ColiopResult *coliop_execute(
     int allow_options = 1; // `--` is a magic arg that means we stop processing more options
     
     ColiopResult *result = calloc(1, sizeof(ColiopResult));
+    if (NULL == result) {
+        return NULL;
+    }
     
     while (i < argc) {
         const char *cur_arg = argv[i++];
@@ -128,7 +128,7 @@ ColiopResult *coliop_execute(
                 coliop_print_help(config, name, output_stream);
                 return calloc(1, sizeof(ColiopResult));
             } else {
-                ColiopOption *end_option = config->options + config->num_options;
+                const ColiopOption *end_option = config->options + config->num_options;
                 int option_handled = 0;
                 for (ColiopOption *option= config->options; option!=end_option; option++) {
                     int is_letter = (cur_arg[1] == option->letter) && (cur_arg[2] == '\0');
@@ -198,19 +198,21 @@ ColiopResult *coliop_execute(
             
             // positional argument
             if (result->num_positional_args >= config->max_positional_args) {
-                fprintf(output_stream, "error parsing command-line args: too many positional arguments (max = %lld)\n", config->max_positional_args);
+                fprintf(output_stream, "error parsing command-line args: too many positional arguments (max = %zu)\n", config->max_positional_args);
                 coliop_print_help(config, name, output_stream);
                 return result;
             }
             
             if (result->num_positional_args >= pos_args_cap) {
                 pos_args_cap = (pos_args_cap==0) ? 1 : pos_args_cap * 2;
+                ColiopResult *backup = result;
                 result = realloc(
                     result,
                     sizeof(ColiopResult) + pos_args_cap * sizeof(result->positional_args[0])
                 );
                 if (NULL == result) {
                     fprintf(output_stream, "error parsing command-line args: allocation failure\n");
+                    free(backup);
                     return result;
                 }
             }

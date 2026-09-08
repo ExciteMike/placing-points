@@ -17,7 +17,7 @@ extern "C" {
 extern void begin_svg(FILE *file, float width, float height); // write out the beginning of an svg file. use end_svg to finish.
 extern void end_svg(FILE *file); // write out the last bit of an svg file.
 extern void write_point(FILE *file, Pt p, float radius, const char *fill_color); // draw circle for a point
-extern void write_points(FILE *file, Pt *points, size_t count, float radius, const char *fill_color); // draw circles for each point. TWO floats per point (x and y coords), so count must be even
+extern void write_points(FILE *file, const Pt *points, size_t count, float radius, const char *fill_color); // draw circles for each point. TWO floats per point (x and y coords), so count must be even
 #ifdef __cplusplus
 }
 #endif
@@ -42,7 +42,7 @@ void write_point(FILE *file, Pt p, float radius, const char *fill_color) {
 // draw circles for each of `count` points. 
 void write_points(
     FILE *file,
-    Pt *points,
+    const Pt *points,
     size_t count,
     float radius,
     const char *fill_color

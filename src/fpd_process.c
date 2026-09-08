@@ -3,6 +3,7 @@
    Generate SVGs to demonstrate Fast Poisson Disk 
  */
 
+#include <float.h>
 #include <math.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -20,22 +21,24 @@ enum {
     MIN_DIST_SQ = MIN_DIST*MIN_DIST,
     MAX_DIST_SQ = MAX_DIST*MAX_DIST,
     POINT_RADIUS = 4,
-    CANDIDATE_RADIUS = 6,
+    CANDIDATE_RADIUS = MIN_DIST,
     MAX_POINTS = 40,
     MAX_TRIES = 4,
     MAX_COLS = 14,
     MAX_ROWS = 11,
     PATH_BUF_LEN = 32,
-    SEED = 99000312,
-    ANIMATION_LENGTH = 60,
+    SEED = 99000313,
+    ANIMATION_LENGTH = 120,
     MAX_CANDIDATES = 1024,
-    PAUSE_FRAMES = 25,
+    PAUSE_FRAMES = 10,
     ANNULUS_OUTLINE_WIDTH = 1
 };
 static const char* POINT_COLOR = "blue";
 static const char* ANNULUS_FILL_COLOR = "#f3f3f3";
 static const char* ANNULUS_BORDER_COLOR = "#999";
-static const char* CANDIDATE_FILL_COLOR = "white";
+static const char* CANDIDATE_FILL_COLOR = "#f9f9f9";
+static const char* CANDIDATE_SUCCESS_COLOR = "palegreen";
+static const char* CANDIDATE_FAIL_COLOR = "lightpink";
 static const char* CANDIDATE_OUTLINE_COLOR = "#999";
 static const char* BACKGROUND_COLOR = "#f9f9f9";
 static const char* GRID_SQUARE_COLOR = "#999";
@@ -96,6 +99,8 @@ typedef struct CandidateData {
     size_t parent_idx;
     StartEnd times;
     Pt p;
+    float distance_to_nearest;
+    int successful;
 } CandidateData;
 
 
@@ -116,7 +121,6 @@ typedef struct Script {
 static float calc_pct(size_t n, size_t d);
 static void clear_script(Script *script);
 static int config_check();
-static int distance_check(const Fpd *fpd, const Pt p);
 static float dist_sq(const Pt p1, const Pt p2);
 static void fpd_step(Fpd *fpd, Script *script);
 static void init_fpd(Fpd *fpd);
@@ -130,7 +134,7 @@ static void render_curtain_css(FILE *f, const Script *script);
 static void render_grid_squares_css(FILE *f, const Script *script);
 static void render_points_css(FILE *f, const Script *script);
 static void script_activate_last_point(Script *script);
-static size_t script_add_candidate(Script *script, Pt p, size_t parent_pt_idx);
+static size_t script_add_candidate(Script *script, Pt p, size_t parent_pt_idx, float distance_to_nearest, int successful);
 static void script_add_permanent_point(Script *script, Pt p);
 static void script_clear_all_candidates(Script*);
 static void script_clear_candidates(Script*,size_t,size_t);
@@ -196,29 +200,29 @@ static int config_check() {
 }
 
 
-/* return nonzero if candidate point seems ok */
-static int distance_check(const Fpd *fpd, const Pt p) {
+/* distance to nearest point */
+static float distance_to_nearest_point(const Fpd *fpd, const Pt p) {
     const size_t candidate_row = (size_t)floor(p.y / (float)CELL_SIZE);
     const size_t candidate_col = (size_t)floor(p.x / (float)CELL_SIZE);
     const size_t min_row = max(1, candidate_row) - 1;
     const size_t max_row = min(candidate_row + 2, MAX_ROWS - 1);
     const size_t min_col = max(1, candidate_col) - 1;
     const size_t max_col = min(candidate_col + 1, MAX_COLS - 1);
+    float nearest = FLT_MAX;
     for (size_t row=min_row;row<=max_row;++row) {
         for (size_t col=min_col;col<=max_col;++col) {
             const size_t pt_idx = fpd->grid.rows[row].cells[col];
             if (SIZE_MAX == pt_idx) {
                 continue;
             }
-            float d_sq = dist_sq(fpd->pts[pt_idx], p);
-            if (d_sq < (float)MIN_DIST_SQ) {
-                /* found a point that it is too close to */
-                return 0;
+            float d = sqrtf(dist_sq(fpd->pts[pt_idx], p));
+            if (d < nearest) {
+                nearest = d;
             }
         }
     }
-    /* no point was too close */
-    return 1;
+    /* no points!? */
+    return nearest;
 }
 
 
@@ -239,26 +243,26 @@ static void fpd_step(Fpd *fpd, Script *script) {
     size_t cur_pt_idx = fpd->active[fpd->n_active-1];
     Pt cur = fpd->pts[cur_pt_idx];
     size_t new_candidates_begin = script->n_candidates;
-    size_t new_candidates_end = script->n_candidates;
 
     size_t tries = 0;
     while (tries++ < MAX_TRIES) {
         Pt candidate = random_from_annulus(cur);
-        new_candidates_end = script_add_candidate(script, candidate, cur_pt_idx)+1;
-        if ((0.f <= candidate.x) &&
+        float d = fmin(MAX_DIST, distance_to_nearest_point(fpd, candidate));
+        int successful = (0.f <= candidate.x) &&
             (candidate.x <= (float)WIDTH) && 
             (0.f <= candidate.y) &&
             (candidate.y <= (float)HEIGHT) &&
-            distance_check(fpd, candidate)
-        ) {
+            (d >= MIN_DIST);
+        script_add_candidate(script, candidate, cur_pt_idx, d, successful);
+        if (successful) {
             insert_point(fpd, script, candidate);
-            script_clear_candidates(script, new_candidates_begin, new_candidates_end);
+            script_clear_candidates(script, new_candidates_begin, script->n_candidates);
             return;
         }
     }
 
     /* retry limit exceeded, remove from active list */
-    script_clear_candidates(script, new_candidates_begin, new_candidates_end);
+    script_clear_candidates(script, new_candidates_begin, script->n_candidates);
     script->annuli[cur_pt_idx].end = script->n_frames++;
     fpd->n_active--;
 }
@@ -380,6 +384,8 @@ static void render_annuli(FILE *f, const Script *script) {
 static void render_candidates_css(FILE *f, const Script *script) {
     for (size_t idx=0;idx<script->n_candidates;++idx) {
         const CandidateData *data = &(script->candidates[idx]);
+        size_t parent_idx = data->parent_idx;
+        Pt parent = script->pts[parent_idx];
         size_t frame1 = min(script->n_frames-1, data->times.start);
         size_t frame2 = min(script->n_frames-1, frame1+1);
         size_t frame3 = min(script->n_frames-1, data->times.end);
@@ -392,7 +398,17 @@ static void render_candidates_css(FILE *f, const Script *script) {
         fprintf(f, "\n#c%03zu{animation:c%03zu %ds linear infinite}", idx, idx, ANIMATION_LENGTH);
         fprintf(f, "\n@keyframes c%03zu {", idx);
         fprintf(f, "\n0%%,%.1f%%,%.1f%%,100%%{r:0}", pct1, pct4);
-        fprintf(f, "\n%.1f%%,%.1f%%{r:%dpx}", pct2, pct3, CANDIDATE_RADIUS);
+        fprintf(f, "\n%.1f%%,%.1f%%{r:%.1fpx}", pct2, pct3, data->distance_to_nearest);
+
+        const char *color = (data->successful) ? CANDIDATE_SUCCESS_COLOR : CANDIDATE_FAIL_COLOR;
+        fprintf(f, "\n%.1f%%{fill:%s}", pct2, CANDIDATE_FILL_COLOR);
+        fprintf(f, "\n%.1f%%{fill:%s}", pct3, color);
+
+        fprintf(f, "\n}");
+        fprintf(f, "\n#l%03zu{animation:l%03zu %ds linear infinite}", idx, idx, ANIMATION_LENGTH);
+        fprintf(f, "\n@keyframes l%03zu {", idx);
+        fprintf(f, "\n0%%,%.1f%%,%.1f%%,100%%{transform:translate(%.1fpx,%.1fpx) scale(0)}", pct1, pct4, parent.x, parent.y);
+        fprintf(f, "\n%.1f%%,%.1f%%{transform:translate(0,0) scale(1)}", pct2, pct3);
         fprintf(f, "\n}");
     }
 }
@@ -403,10 +419,20 @@ static void render_candidates(FILE *f, const Script *script) {
     fprintf(f, "\n<g fill=\"%s\" stroke=\"%s\">", CANDIDATE_FILL_COLOR, CANDIDATE_OUTLINE_COLOR);
     for (size_t idx=0;idx<script->n_candidates;++idx) {
         Pt p = script->candidates[idx].p;
+        float d = script->candidates[idx].distance_to_nearest;
+        size_t parent_idx = script->candidates[idx].parent_idx;
+        Pt parent = script->pts[parent_idx];
         fprintf(f, "\n<circle id=\"c%03zu\"", idx);
         fprintf(f,          " cx=\"%.2f\"", p.x);
         fprintf(f,          " cy=\"%.2f\"", p.y);
-        fprintf(f,          " r=\"%d\" />", CANDIDATE_RADIUS);
+        fprintf(f,          " r=\"%.1f\"", d);
+        fprintf(f,          " />");
+        fprintf(f, "\n<line id=\"l%03zu\"", idx);
+        fprintf(f,          " x1=\"%.2f\"", parent.x);
+        fprintf(f,          " y1=\"%.2f\"", parent.y);
+        fprintf(f,          " x2=\"%.2f\"", p.x);
+        fprintf(f,          " y2=\"%.2f\"", p.y);
+        fprintf(f,          " stroke-width=\"2\" />");
     }
     fprintf(f, "\n</g>");
 }
@@ -554,7 +580,7 @@ static void script_activate_last_point(Script *script) {
 
 
 /** record a candidate point appearing. returns an index you can use to mark its end, or SIZE_MAX if something goes wrong */
-static size_t script_add_candidate(Script *script, Pt p, size_t parent_pt_idx) {
+static size_t script_add_candidate(Script *script, Pt p, size_t parent_pt_idx, float distance_to_nearest, int successful) {
     size_t n = script->n_candidates;
     if (n >= MAX_CANDIDATES) {
         fprintf(stderr, "increase candidate buffer size\n");
@@ -564,6 +590,8 @@ static size_t script_add_candidate(Script *script, Pt p, size_t parent_pt_idx) {
     script->candidates[n].times.start = script->n_frames;
     script->candidates[n].times.end = SIZE_MAX;
     script->candidates[n].p = p;
+    script->candidates[n].distance_to_nearest = successful ? (float)MIN_DIST : distance_to_nearest;
+    script->candidates[n].successful = successful;
     ++(script->n_candidates);
     ++(script->n_frames);
     return n;

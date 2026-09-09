@@ -52,9 +52,19 @@ def gen_mine():
     return gen_f(mine, NUM_SAMPLES)
 
 def mine(x):
+    #return np.piecewise(x,
+    #    [x<=0.25,(x>0.25) & (x<=0.4167)],
+    #    [0,1,0.5])
+    a = 2.0 / 12.0
+    b = 3.0 / 12.0
+    c = 4.0 / 12.0
+    d = 5.0 / 12.0
     return np.piecewise(
         x,
-        [x < 0.1667, x < 0.25, x < 0.3333, x < 0.4167],
+        [ x<=a,
+         (x>a) & (x<=b),
+         (x>b) & (x<=c),
+         (x>c) & (x<=d)],
         [0, lambda x: 12*x - 2, 1, lambda x: 3 - 6*x, 0.5]
         )
 

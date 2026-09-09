@@ -17,26 +17,26 @@
 extern "C" {
 #endif
 
-/*
-   Generate points using the Fast Poisson Disk algorithm described by Bridson.
-   (https://doi.org/10.1145/1278780.1278807)
-
-   Allocates temporary memory using `calloc`, `realloc`, and `free`. Final 
-   results are stored in a buffer you provide. The number of points written is
-   stored in `out_num_written`.
-
-   buf       - Buffer to which to write the positions.
-   buf_size  - How many points there is room for in buf, limiting the maximum 
-               number of points this function can produce
-   width     - Maximum of x value of produced points.
-   height    - Maximum of y value of produced points.
-   min_dist  - Minimum allowed distance between generated points.
-   max_tries - Limit the number of tries from any previously generated point.
-               Higher values can produce denser distribution at the cost of 
-               speed. The recommended value is 30.
-   out_num_points - Will contain the number of *points* written to buf
-
-   return value - nonzero if successful
+/**
+ *  Generate points using the Fast Poisson Disk algorithm described by Bridson.
+ *  (https://doi.org/10.1145/1278780.1278807)
+ *
+ *  Allocates temporary memory using `calloc`, `realloc`, and `free`. Final 
+ *  results are stored in a buffer you provide. The number of points written is
+ *  stored in `out_num_written`.
+ *
+ *  buf       - Buffer to which to write the positions.
+ *  buf_size  - How many points there is room for in buf, limiting the maximum 
+ *              number of points this function can produce
+ *  width     - Maximum of x value of produced points.
+ *  height    - Maximum of y value of produced points.
+ *  min_dist  - Minimum allowed distance between generated points.
+ *  max_tries - Limit the number of tries from any previously generated point.
+ *              Higher values can produce denser distribution at the cost of 
+ *              speed. The recommended value is 30.
+ *  out_num_points - Will contain the number of *points* written to buf
+ *
+ *  return value - nonzero if successful
  */
 int fast_poisson_disk(
     Pt *buf,
@@ -74,13 +74,17 @@ typedef struct FpdState {
     size_t max_points;
     size_t count;
 
-    /** Grid: index by `(row * num_cols) + col` to get a pointer to the first 
-       of the pair of coords for the point in that grid square or NULL */
+    /**
+     *  Grid: index by `(row * num_cols) + col` to get a pointer to the first 
+     *  of the pair of coords for the point in that grid square or NULL
+     */
     Pt **grid;
 
-    /** cell size chosen to make sure no more than one point can fit in a cell.
-       NOTE: if adapting this for dimensions other than 2, change that sqrt(2) 
-       to sqrt(num_dimensions) */
+    /**
+     *  cell size chosen to make sure no more than one point can fit in a cell.
+     *  Should equal the minimum distance between points divided by the square 
+     *  root of the number of dimensions.
+     */
     float cell_size;
 
     size_t num_rows;

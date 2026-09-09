@@ -205,7 +205,7 @@
         <section>
             <h2><a id="motivation"></a>Motivation</h2>
             <p>In videogames and computer graphics, we often get into situations where we want to distribute something throughout a region. Things like placing trees in a virtual forest or a raytracer casting out rays to determine pixel color. In cases like these, the most straightforward approaches have some big drawbacks! A regular grid looks artificial and produces undesirable <a href="https://en.wikipedia.org/wiki/Aliasing">aliasing</a> effects and <a href="https://en.wikipedia.org/wiki/Moir%C3%A9_pattern">Moiré patterns</a>. Metaphorically throwing darts at the region using uniform random numbers will produce some regions with dense clusters and others with large gaps.</p>
-            <p>What we need is a balance between the chaos of pure randomness and the unnatural order of regular spacing: the points should look evenly spaced when viewed at large scales, but not predictable at small scales. Distributions meeting those criteria are sometimes called "blue noise."</p>
+            <p>What we need is a balance between the chaos of pure randomness and the unnatural order of regular spacing: the points should look evenly spaced when viewed at large scales, but not predictable at small scales. Unstructured and lacking low frequency texture. Distributions meeting those criteria are sometimes called "blue noise."</p>
             <div class="threecolumns">
               <figure>
                 <img src="intro_grid.svg" alt="250 Points distributed on a uniform grid"/>
@@ -240,10 +240,25 @@
             </figure>
           </div>
           <p>It might seem odd to think of frequencies and power spectra when we are trying to plant some virtual trees, but it gives us a way to formally define the behavior we're looking for and measure how well we achieve it. Within our generated forest, we want a relatively even density of trees, with no large areas of the forest looking much different compared to another large area. That means we want lower power at low frequencies. And at the same time, we want to prevent trees from occurring too close together. That tells us that we want higher power at higher frequencies. Blue noise!</p>
+          <div class="threecolumns">
+            <figure>
+              <img src="2dnoise_white.png" alt="2D white noise"/>
+              <figcaption>2D white noise</figcaption>
+            </figure>
+            <figure>
+              <img src="2dnoise_blue.png" alt="2D blue noise"/>
+              <figcaption>2D blue noise</figcaption>
+            </figure>
+            <figure>
+              <img src="2dnoise_red.png" alt="2D red noise"/>
+              <figcaption>2D red noise</figcaption>
+            </figure>
+          </div>
+          <p>But it is a metaphor and not the whole problem. Distributions can match the power spectrum of blue noise while still clumping or looking too regular, and arguably the power spetrum that properly meets our criteria of evenness would have a peak at the average distance between points, and flatten out like white noise at the higher frequencies. TODO: cite https://cv.ulichney.com/papers/2000-halftoning-review.pdf</p>
         </section>
         <section>
           <h2><a id="possible-approaches"></a>Possible Approaches</h2>
-          <p>For those familiar with the concept, this discussion of frequencies might suggest using a discrete Fourier transform! We could take our desired frequency-domain behavior, generate random values in the frequency domain based on that shape, and then use the inverse Fourier transform to construct the sample data that would generate it. That is how I created the graphs above! This works well for the one-dimensional case in the figures above, but I haven't yet figured out how to extend that approach to more dimensions. It would also mean diving into more mathematics than I'd prefer to for this particular article, so we'll look at some other methods.</p>
+          <p>For those familiar with the concept, this discussion of frequencies might suggest using a discrete Fourier transform! We could take our desired frequency-domain behavior, generate random values in the frequency domain based on that shape, and then use the inverse Fourier transform to construct the sample data that would generate it. That is how I created the graphs above! This works well for the one-dimensional case in the figures above, but I haven't yet figured out how to extend that approach to more dimensions.</p>
           <p>The approach I am going to go into most detail about here and the one I would most often recommend is referred to as Fast Poisson Disk Sampling, from the title of a <cite><a href="./bridson-siggraph07-poissondisk.pdf">SIGGRAPH paper by Robert Bridson</a></cite>. I'll mention a few others first, though, because they are interesting in their own right.</p>
 
           <h3><a id="jittered-grid"></a>Jittered Grid</h3>
@@ -412,6 +427,7 @@ typedef struct FpdState {
   TODO: link to the github
   TODO: images with different settings
   TODO: link to github
+  TODO: cover Halton sequences
         </section>
         <section class="references">
           <h2>References</h2>

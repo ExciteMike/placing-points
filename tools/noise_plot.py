@@ -99,16 +99,12 @@ def make_noise_graphs(path, samples, output_range_min=0.01, output_range_max=0.9
     power_spectrum = normalize(power_spectrum)
     frequencies = np.fft.fftfreq(samples.size)[1:]
 
-    # fft stuff above doesn't put them in the most reasonable order for plotting
-    #indices = np.argsort(np.abs(frequencies))
-    #frequencies = frequencies[indices]
-    #power_spectrum = power_spectrum[indices]
-
     with open(path, "w") as f:
         # top - the samples
-        f.write(f"""<svg width="{FULL_WIDTH}" height="{FULL_HEIGHT}" stroke="blue" stroke-width="1" fill="none" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">""")
-        f.write(f"""<rect x="{MARGIN - 1}" y="{MARGIN - 1}" width="{PLOT_WIDTH + 2}" height="{PLOT_HEIGHT + 2}" fill="#f9f9f9" stroke="none"/>""")
-        f.write(f"""<rect x="{MARGIN - 1}" y="{PLOT2_TOP - 1}" width="{PLOT_WIDTH + 2}" height="{PLOT_HEIGHT + 2}" fill="#f9f9f9" stroke="none"/>""")
+        f.write(f"""\n<svg width="{FULL_WIDTH}" height="{FULL_HEIGHT}" stroke="blue" stroke-width="1" fill="none" stroke-linejoin="round" xmlns="http://www.w3.org/2000/svg">""")
+        f.write(f"""\n<rect x="{MARGIN - 1}" y="{MARGIN - 1}" width="{PLOT_WIDTH + 2}" height="{PLOT_HEIGHT + 2}" fill="#f9f9f9" stroke="none"/>""")
+        f.write(f"""\n<rect x="{MARGIN - 1}" y="{PLOT2_TOP - 1}" width="{PLOT_WIDTH + 2}" height="{PLOT_HEIGHT + 2}" fill="#f9f9f9" stroke="none"/>""")
+        f.write(f"""\n<line x1="{MARGIN}" y1="{MARGIN + PLOT_HEIGHT/2}" x2="{MARGIN + PLOT_WIDTH}" y2="{MARGIN + PLOT_HEIGHT/2}" stroke="gray" />""")
         f.write("<path d=\"")
         truncated_samples = normalize(samples[:SAMPLE_PLOT_LIMIT])
         for index, value in enumerate(np.nditer(truncated_samples)):
@@ -131,7 +127,7 @@ def make_noise_graphs(path, samples, output_range_min=0.01, output_range_max=0.9
         normalized = bin_means / bin_means.max()
         n = normalized.size
         prev_x = PLOT_LEFT
-        f.write(f"<path d=\"M {PLOT_LEFT} {PLOT2_BOTTOM}")
+        f.write(f"\n<path d=\"M {PLOT_LEFT} {PLOT2_BOTTOM}")
         for index, value in enumerate(np.nditer(normalized)):
             x = PLOT_LEFT + ((index+1) / n) * PLOT_WIDTH
             mapped_value = output_range_min + value * (output_range_max - output_range_min)
@@ -139,7 +135,8 @@ def make_noise_graphs(path, samples, output_range_min=0.01, output_range_max=0.9
             f.write(f" L {prev_x:.2f} {y:.2f}")
             f.write(f" L {x:.2f} {y:.2f}")
             prev_x = x
-        f.write(f""" L {PLOT_RIGHT} {PLOT2_BOTTOM} z\" fill="blue" stroke="none"/></svg>""")
+        f.write(f""" L {PLOT_RIGHT} {PLOT2_BOTTOM} z\" fill="blue" stroke="none"/>""")
+        f.write("\n</svg>")
 
 make_noise_graphs("../dist/colors_of_noise_white.svg", gen_white_noise(), output_range_max=0.6)
 make_noise_graphs("../dist/colors_of_noise_blue.svg", gen_blue_noise())

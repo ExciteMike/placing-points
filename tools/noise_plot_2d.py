@@ -26,6 +26,23 @@ def gen_blue_noise():
     # blue noise has power spectrum density proportional to frequency (which means beta = -1)
     return gen_power_law(-1, NUM_SAMPLES_PER_DIMENSION)
 
+def gen_violet_noise():
+    # blue noise has power spectrum density proportional to frequency squared (which means beta = -2)
+    return gen_power_law(-2, NUM_SAMPLES_PER_DIMENSION)
+
+
+def mine(x):
+    return np.piecewise(
+        x,
+        [x < 0.1667, x < 0.25, x < 0.3333, x < 0.4167],
+        [0, lambda x: 12*x - 2, 1, lambda x: 3 - 6*x, 0.5]
+        )
+
+
+def gen_mine():
+    return gen_f(mine, NUM_SAMPLES_PER_DIMENSION)
+
+
 def gen_power_law(exponent: float, n_samples_per_dim: int):
     r"""generate noise whose power spectrum is proportional to 1 / (frequency^exponent).
     
@@ -34,6 +51,11 @@ def gen_power_law(exponent: float, n_samples_per_dim: int):
         On generating power law noise.
         Astron. Astrophys. 300, 707-710 (1995)
     for a better algorithm."""
+    f = lambda x: x**(-0.5 * exponent)
+    return gen_f(f, NUM_SAMPLES_PER_DIMENSION)
+
+
+def gen_f(f, n_samples_per_dim: int):
     frequencies = np.fft.rfftfreq(n_samples_per_dim)
     
     # cut off frequencies below 1/n_samples_per_dim
@@ -42,7 +64,7 @@ def gen_power_law(exponent: float, n_samples_per_dim: int):
     cutoff = np.sum(frequencies < f_min)
     if 0 < cutoff < len(frequencies):
         scaling_factors[:cutoff] = scaling_factors[cutoff]
-    scaling_factors = scaling_factors**(-0.5 * exponent)
+    scaling_factors = f(scaling_factors)
     scaling_factors = scaling_factors.reshape((-1,1)) * scaling_factors.reshape((1,-1))
 
     rng = np.random.default_rng()
@@ -81,7 +103,9 @@ def save_as_img(samples, fname):
             pixels[x, y] = int(samples[x,y] * 255)
     im.save(fname)
 
-save_as_img(gen_white_noise(), 'whitenoise2d.png')
-save_as_img(gen_blue_noise(), 'bluenoise2d.png')
-save_as_img(gen_brownian_noise(), 'rednoise2d.png')
-save_as_img(gen_pink_noise(), 'pinknoise2d.png')
+save_as_img(gen_white_noise(), '2dnoise_white.png')
+save_as_img(gen_blue_noise(), '2dnoise_blue.png')
+save_as_img(gen_brownian_noise(), '2dnoise_red.png')
+save_as_img(gen_pink_noise(), '2dnoise_pink.png')
+save_as_img(gen_violet_noise(), '2dnoise_violet.png')
+save_as_img(gen_mine(), '2dnoise_mine.png')

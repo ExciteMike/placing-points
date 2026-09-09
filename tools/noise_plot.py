@@ -43,7 +43,34 @@ def gen_blue_noise():
     # blue noise has power spectrum density proportional to frequency (which means beta = -1)
     return gen_power_law(-1, NUM_SAMPLES)
 
+def gen_violet_noise():
+    # violet noise has power spectrum density proportional to frequency squared (which means beta = -2)
+    return gen_power_law(-2, NUM_SAMPLES)
+
+def gen_mine():
+    f = lambda x: 1.5 * (x**2+2*x) / (6*x**2 + 0.5)
+    return gen_f(mine, NUM_SAMPLES)
+
+def mine(x):
+    return np.piecewise(
+        x,
+        [x < 0.1667, x < 0.25, x < 0.3333, x < 0.4167],
+        [0, lambda x: 12*x - 2, 1, lambda x: 3 - 6*x, 0.5]
+        )
+
 def gen_power_law(exponent: float, n_samples: int):
+    r"""generate noise whose power spectrum is proportional to 1 / (frequency^exponent).
+    
+    The variance/standard deviation are arbitrary. See the paper 
+        Timmer, J. and Koenig, M.:
+        On generating power law noise.
+        Astron. Astrophys. 300, 707-710 (1995)
+    for a better algorithm."""
+    f = lambda x: x**(-0.5 * exponent)
+    return gen_f(f, n_samples)
+
+
+def gen_f(f, n_samples: int):
     r"""generate noise whose power spectrum is proportional to 1 / (frequency^exponent).
     
     The variance/standard deviation are arbitrary. See the paper 
@@ -59,7 +86,7 @@ def gen_power_law(exponent: float, n_samples: int):
     cutoff = np.sum(frequencies < f_min)
     if 0 < cutoff < len(frequencies):
         scaling_factors[:cutoff] = scaling_factors[cutoff]
-    scaling_factors = scaling_factors**(-0.5 * exponent)
+    scaling_factors = f(scaling_factors)
 
     rng = np.random.default_rng()
     size = len(scaling_factors)
@@ -142,3 +169,5 @@ make_noise_graphs("../dist/colors_of_noise_white.svg", gen_white_noise(), output
 make_noise_graphs("../dist/colors_of_noise_blue.svg", gen_blue_noise())
 make_noise_graphs("../dist/colors_of_noise_red.svg", gen_brownian_noise())
 make_noise_graphs("../dist/colors_of_noise_pink.svg", gen_pink_noise())
+make_noise_graphs("../dist/colors_of_noise_violet.svg", gen_violet_noise())
+make_noise_graphs("../dist/colors_of_noise_mine.svg", gen_mine())

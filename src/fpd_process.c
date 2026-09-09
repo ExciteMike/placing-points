@@ -10,38 +10,40 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#define SQRT_ONE_HALF (0.707106781187)
+#define SQRT_ONE_HALF (0.707106781187f)
 #define CELL_SIZE ((float)MIN_DIST * SQRT_ONE_HALF)
 
 enum {
     WIDTH = 240,
     HEIGHT = 180,
-    MIN_DIST = 25,
+    MIN_DIST = 30,
     MAX_DIST = 2*MIN_DIST,
     MIN_DIST_SQ = MIN_DIST*MIN_DIST,
     MAX_DIST_SQ = MAX_DIST*MAX_DIST,
-    POINT_RADIUS = 4,
-    CANDIDATE_RADIUS = MIN_DIST,
+    POINT_RADIUS = 6,
+    CANDIDATE_RADIUS = 12,
     MAX_POINTS = 40,
     MAX_TRIES = 4,
     MAX_COLS = 14,
-    MAX_ROWS = 11,
+    MAX_ROWS = 12,
     PATH_BUF_LEN = 32,
-    SEED = 99000313,
-    ANIMATION_LENGTH = 120,
+    SEED = 99000317,
+    ANIMATION_LENGTH = 60,
     MAX_CANDIDATES = 1024,
-    PAUSE_FRAMES = 10,
+    PAUSE_FRAMES = 30,
     ANNULUS_OUTLINE_WIDTH = 1
 };
 static const char* POINT_COLOR = "blue";
-static const char* ANNULUS_FILL_COLOR = "#f3f3f3";
+static const char* ANNULUS_FILL_COLOR = "aliceblue";
 static const char* ANNULUS_BORDER_COLOR = "#999";
 static const char* CANDIDATE_FILL_COLOR = "#f9f9f9";
+static const char* CANDIDATE_FILL_OPACITY = "1";
 static const char* CANDIDATE_SUCCESS_COLOR = "palegreen";
 static const char* CANDIDATE_FAIL_COLOR = "lightpink";
 static const char* CANDIDATE_OUTLINE_COLOR = "#999";
+static const char* CANDIDATE_LINE_COLOR = "black";
 static const char* BACKGROUND_COLOR = "#f9f9f9";
-static const char* GRID_SQUARE_COLOR = "#999";
+static const char* GRID_COLOR = "#ccc";
 static char *OUT_PATH = "./dist/fpd_process.svg";
 
 
@@ -67,12 +69,6 @@ typedef struct GridRow {
 typedef struct Grid {
     GridRow rows[MAX_ROWS];
 } Grid;
-
-
-/** for each cell in a row, which frame it was filled on, or SIZE_MAX if never */
-typedef struct RowFillFrames {
-    size_t cells[MAX_COLS];
-} RowFillFrames;
 
 
 /** pair of start and end times */
@@ -106,7 +102,6 @@ typedef struct CandidateData {
 
 /** data from which to generate the SVG */
 typedef struct Script {
-    RowFillFrames grid[MAX_ROWS];
     StartEnd annuli[MAX_POINTS];
     CandidateData candidates[MAX_CANDIDATES];
     size_t n_candidates;
@@ -131,14 +126,12 @@ static Pt rand_pt();
 static float rand_range(const float min, const float max);
 static Pt random_from_annulus(const Pt p);
 static void render_curtain_css(FILE *f, const Script *script);
-static void render_grid_squares_css(FILE *f, const Script *script);
 static void render_points_css(FILE *f, const Script *script);
 static void script_activate_last_point(Script *script);
 static size_t script_add_candidate(Script *script, Pt p, size_t parent_pt_idx, float distance_to_nearest, int successful);
 static void script_add_permanent_point(Script *script, Pt p);
 static void script_clear_all_candidates(Script*);
 static void script_clear_candidates(Script*,size_t,size_t);
-static void script_fill_grid_space(Script *script, size_t row, size_t col);
 static float time_warp(float);
 
 
@@ -171,11 +164,6 @@ static float calc_pct(size_t n, size_t d) {
 
 /** build up a script that can be used to render out what all it did */
 static void clear_script(Script *script) {
-    for (size_t row=0;row<MAX_ROWS;++row) {
-        for (size_t col=0;col<MAX_COLS;++col) {
-            script->grid[row].cells[col] = SIZE_MAX;
-        }
-    }
     script->n_candidates = 0;
     script->n_points = 0;
     script->n_frames = 0;
@@ -299,7 +287,6 @@ static void insert_point(Fpd *fpd, Script *script, Pt p) {
 
     /* update script */
     script_add_permanent_point(script, p);
-    script_fill_grid_space(script, row, col);
     script_activate_last_point(script);
 }
 
@@ -384,8 +371,6 @@ static void render_annuli(FILE *f, const Script *script) {
 static void render_candidates_css(FILE *f, const Script *script) {
     for (size_t idx=0;idx<script->n_candidates;++idx) {
         const CandidateData *data = &(script->candidates[idx]);
-        size_t parent_idx = data->parent_idx;
-        Pt parent = script->pts[parent_idx];
         size_t frame1 = min(script->n_frames-1, data->times.start);
         size_t frame2 = min(script->n_frames-1, frame1+1);
         size_t frame3 = min(script->n_frames-1, data->times.end);
@@ -398,17 +383,18 @@ static void render_candidates_css(FILE *f, const Script *script) {
         fprintf(f, "\n#c%03zu{animation:c%03zu %ds linear infinite}", idx, idx, ANIMATION_LENGTH);
         fprintf(f, "\n@keyframes c%03zu {", idx);
         fprintf(f, "\n0%%,%.1f%%,%.1f%%,100%%{r:0}", pct1, pct4);
-        fprintf(f, "\n%.1f%%,%.1f%%{r:%.1fpx}", pct2, pct3, data->distance_to_nearest);
+        fprintf(f, "\n%.1f%%,%.1f%%{r:%dpx}", pct2, pct3, CANDIDATE_RADIUS/*data->distance_to_nearest*/);
 
         const char *color = (data->successful) ? CANDIDATE_SUCCESS_COLOR : CANDIDATE_FAIL_COLOR;
         fprintf(f, "\n%.1f%%{fill:%s}", pct2, CANDIDATE_FILL_COLOR);
         fprintf(f, "\n%.1f%%{fill:%s}", pct3, color);
+        fprintf(f, "\n%.1f%%{fill:none}", pct4);
 
         fprintf(f, "\n}");
         fprintf(f, "\n#l%03zu{animation:l%03zu %ds linear infinite}", idx, idx, ANIMATION_LENGTH);
         fprintf(f, "\n@keyframes l%03zu {", idx);
-        fprintf(f, "\n0%%,%.1f%%,%.1f%%,100%%{transform:translate(%.1fpx,%.1fpx) scale(0)}", pct1, pct4, parent.x, parent.y);
-        fprintf(f, "\n%.1f%%,%.1f%%{transform:translate(0,0) scale(1)}", pct2, pct3);
+        fprintf(f, "\n0%%,%.1f%%,%.1f%%,100%%{stroke-width:0}", pct1, pct4);
+        fprintf(f, "\n%.1f%%,%.1f%%{stroke-width:1px}", pct2, pct3);
         fprintf(f, "\n}");
     }
 }
@@ -416,17 +402,22 @@ static void render_candidates_css(FILE *f, const Script *script) {
 
 /** write out the svg for the candidate points */
 static void render_candidates(FILE *f, const Script *script) {
-    fprintf(f, "\n<g fill=\"%s\" stroke=\"%s\">", CANDIDATE_FILL_COLOR, CANDIDATE_OUTLINE_COLOR);
+    fprintf(f, "\n<g fill=\"%s\" fill-opacity=\"%s\" stroke=\"%s\">", CANDIDATE_FILL_COLOR, CANDIDATE_FILL_OPACITY, CANDIDATE_OUTLINE_COLOR);
     for (size_t idx=0;idx<script->n_candidates;++idx) {
         Pt p = script->candidates[idx].p;
         float d = script->candidates[idx].distance_to_nearest;
-        size_t parent_idx = script->candidates[idx].parent_idx;
-        Pt parent = script->pts[parent_idx];
         fprintf(f, "\n<circle id=\"c%03zu\"", idx);
         fprintf(f,          " cx=\"%.2f\"", p.x);
         fprintf(f,          " cy=\"%.2f\"", p.y);
         fprintf(f,          " r=\"%.1f\"", d);
         fprintf(f,          " />");
+    }
+    fprintf(f, "\n</g>");
+    fprintf(f, "\n<g stroke=\"%s\">", CANDIDATE_LINE_COLOR);
+    for (size_t idx=0;idx<script->n_candidates;++idx) {
+        Pt p = script->candidates[idx].p;
+        size_t parent_idx = script->candidates[idx].parent_idx;
+        Pt parent = script->pts[parent_idx];
         fprintf(f, "\n<line id=\"l%03zu\"", idx);
         fprintf(f,          " x1=\"%.2f\"", parent.x);
         fprintf(f,          " y1=\"%.2f\"", parent.y);
@@ -441,11 +432,8 @@ static void render_candidates(FILE *f, const Script *script) {
 /** write out the CSS needed to animate the SVG. returns nonzero if succesful */
 static void render_css(FILE *f, const Script *script) {
     fprintf(f, "\n<style type=\"text/css\">");
-    render_grid_squares_css(f, script);
-    /* parentage lines */
     render_annuli_css(f, script);
     render_candidates_css(f, script);
-    /* points */
     render_points_css(f, script);
     render_curtain_css(f, script);
     fprintf(f, "\n</style>");
@@ -466,49 +454,17 @@ static void render_curtain_css(FILE *f, const Script *script) {
 }
 
 
-/** write out the CSS needed to animate the SVG. returns nonzero if succesful */
-static void render_grid_squares_css(FILE *f, const Script *script) {
-    enum {NAME_BUF_LEN = 16};
+static void render_grid(FILE *f) {
     if (NULL == f) { return; }
-    for (size_t row=0;row<MAX_ROWS;++row) {
-        for (size_t col=0;col<MAX_COLS;++col) {
-            size_t frame = script->grid[row].cells[col];
-            if (frame == SIZE_MAX) { continue; }
-            char name[NAME_BUF_LEN] = {'\0'};
-            snprintf(name, NAME_BUF_LEN, "r%02zuc%03zu", row, col);
-            fprintf(f, "\n#%s {animation:%s %ds linear infinite}", name, name, ANIMATION_LENGTH);
-            fprintf(f, "\n@keyframes %s {", name);
-            float pct1 = calc_pct(frame, script->n_frames);
-            float x = (float)CELL_SIZE * (0.5f + (float)col);
-            float y = (float)CELL_SIZE * (0.5f + (float)row);
-            fprintf(f, "\n0%%,%.1f%%,100%%{transform:translate(%.1fpx,%.1fpx) scale(0)}", pct1, x, y);
-            float pct2 = calc_pct(frame+1, script->n_frames);
-            float pct3 = calc_pct(script->n_frames-1, script->n_frames);
-            fprintf(f, "\n%.1f%%,%.1f%%{transform:translate(0,0) scale(1)}", pct2, pct3);
-            fprintf(f, "\n}");
-        }
+    fprintf(f, "\n<g id=\"grid\" stroke=\"%s\">", GRID_COLOR);
+    for (size_t row=1;row<MAX_ROWS;++row) {
+        fprintf(f, "\n<line x1=\"0\" y1=\"%.1f\" x2=\"%d\" y2=\"%.1f\" />", row * CELL_SIZE, WIDTH, row * CELL_SIZE);
     }
-}
-
-
-/** write out the grid squares, to be animated in the CSS generated by write_grid_square_anim */
-static void render_grid_squares(FILE *f, const Script *script) {
-    if (NULL == f) { return; }
-    fprintf(f, "\n<g stroke=\"%s\" fill=\"none\">", GRID_SQUARE_COLOR);
-    for (size_t row=0;row<MAX_ROWS;++row) {
-        for (size_t col=0;col<MAX_COLS;++col) {
-            size_t frame = script->grid[row].cells[col];
-            if (frame == SIZE_MAX) { continue; }
-            fprintf(f, "\n<rect id=\"r%02zuc%03zu\"", row, col);
-            fprintf(f,        " x=\"%.2f\"", col * CELL_SIZE);
-            fprintf(f,        " y=\"%.2f\"", row * CELL_SIZE);
-            fprintf(f,        " width=\"%.2f\"", CELL_SIZE);
-            fprintf(f,        " height=\"%.2f\" />", CELL_SIZE);
-        }
+    for (size_t col=1;col<MAX_COLS;++col) {
+        fprintf(f, "\n<line x1=\"%.1f\" y1=\"0\" x2=\"%.1f\" y2=\"%d\" />", col * CELL_SIZE, col * CELL_SIZE, HEIGHT);
     }
     fprintf(f, "</g>");
 }
-
 
 /** write out the css for points animation */
 static void render_points_css(FILE *f, const Script *script) {
@@ -554,8 +510,8 @@ static int render_script(const char *path, const Script *script) {
     fprintf(f, "<svg width=\"%d\" height=\"%d\" xmlns=\"http://www.w3.org/2000/svg\">", WIDTH, HEIGHT);
     fprintf(f, "\n<rect x=\"0\" y=\"0\" width=\"%d\" height=\"%d\" fill=\"%s\" />", WIDTH, HEIGHT, BACKGROUND_COLOR );
     render_css(f, script);
+    render_grid(f);
     render_annuli(f, script);
-    render_grid_squares(f, script);
     render_candidates(f, script);
     fprintf(f, "\n<rect id=\"curtain\" x=\"%d\" y=\"0\" width=\"%d\" height=\"%d\" fill=\"%s\" />", -WIDTH, WIDTH, HEIGHT, BACKGROUND_COLOR );
     render_points(f, script);
@@ -636,22 +592,11 @@ static void script_clear_candidates(Script *script, size_t candidates_begin, siz
 }
 
 
-/** record when a grid space fills */
-static void script_fill_grid_space(Script *script, size_t row, size_t col) {
-    if (row >= MAX_ROWS) { return; }
-    if (col >= MAX_COLS) { return; }
-    if (script->n_points >= MAX_POINTS) { return; }
-    script->grid[row].cells[col] = script->n_frames;
-    ++(script->n_frames);
-}
-
-
 /** custom ease function for overall timing */
 static float time_warp(float t) {
-    return t;
-    /*float t_sq = t*t;
+    float t_sq = t*t;
     float t_cu = t*t*t;
-    return 0.5f*t_cu - 1.5f*t_sq + 2.f*t;*/
+    return 0.5f*t_cu - 1.5f*t_sq + 2.f*t;
 }
 
 

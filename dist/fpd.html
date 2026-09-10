@@ -417,7 +417,7 @@ typedef struct FpdState {
             <label for="init-c">C</label>
           <pre><code class="language-c">int fast_poisson_disk(...) {
     /* early out: if asked for nothing, do nothing */
-    if (buf_size < 1) {
+    if (buf_size &lt; 1) {
         return 1;
     }
     
@@ -425,7 +425,7 @@ typedef struct FpdState {
 
     FpdState fpd = {0};
     if (!fpd_init(
-        &fpd,
+        &amp;fpd,
         buf,
         buf_size,
         width,
@@ -433,11 +433,10 @@ typedef struct FpdState {
         min_dist,
         max_tries)
     ) {
-        fpd_cleanup(&fpd);
+        fpd_cleanup(&amp;fpd);
         return 0;
     }
-...
-</code></pre></div></details>
+...</code></pre></div></details>
           <h4>Initialize the grid</h4>
           <p>If we can guarantee that we won't need more than one point in a grid cell, then each cell of the grid can be just a single pointer to the contained point or <code>NULL</code>. We can guarantee this by setting the diagonal of each cell to the minimum distance between points, so that wherever in a cell the point is, the whole cell is within that distance. The side length of such a cell is equal to that distance divided by the square root of the number of dimensions. From that, we can calculate the number of rows and columns and allocate the space for our grid.</p>
           <details><summary>code</summary><div class="tabs">
@@ -448,11 +447,11 @@ typedef struct FpdState {
     const float cell_size = min_dist / sqrt((float)FPD_DIMENSIONS);
     const size_t num_rows = (size_t)max(1, ceil(height / cell_size));
     const size_t num_cols = (size_t)max(1, ceil(width / cell_size));
-    fpd->cell_size = cell_size;
-    fpd->num_rows = num_rows;
-    fpd->num_cols = num_cols;
-    fpd->grid = calloc(fpd->num_rows * fpd->num_cols, sizeof(fpd->grid[0]));
-    if (NULL == fpd->grid) {
+    fpd-&gt;cell_size = cell_size;
+    fpd-&gt;num_rows = num_rows;
+    fpd-&gt;num_cols = num_cols;
+    fpd-&gt;grid = calloc(fpd-&gt;num_rows * fpd-&gt;num_cols, sizeof(fpd-&gt;grid[0]));
+    if (NULL == fpd-&gt;grid) {
         return 0;
     }
     ...</code></pre></div></details>
@@ -465,11 +464,11 @@ typedef struct FpdState {
     ...
     /* allocating here for worst case. you may prefer to start smaller and resize as needed */
     const size_t max_points = min(buf_size, num_rows * num_cols);
-    fpd->active_list = calloc(max_points, sizeof(fpd->active_list[0]));
-    if (NULL == fpd->active_list) {
+    fpd-&gt;active_list = calloc(max_points, sizeof(fpd-&gt;active_list[0]));
+    if (NULL == fpd-&gt;active_list) {
         return 0;
     }
-    fpd->list_len = 0;
+    fpd-&gt;list_len = 0;
     ...</code></pre></div></details>
           <h3><a id="step-one-first-sample"></a>Step 1. First Sample</h3>
           <div class="threecolumns">
@@ -484,8 +483,8 @@ typedef struct FpdState {
             <label for="first-sample-c">C</label>
           <pre><code class="language-c">int fast_poisson_disk(...) {
 ...
-    if (!fpd_insert(&fpd, (Pt) { fpd_randrange(0, width), fpd_randrange(0, height) })) {
-        fpd_cleanup(&fpd);
+    if (!fpd_insert(&amp;fpd, (Pt) { fpd_randrange(0, width), fpd_randrange(0, height) })) {
+        fpd_cleanup(&amp;fpd);
         return 0;
     }
     *out_num_points = fpd.count;
@@ -501,30 +500,30 @@ static int fpd_insert(FpdState *fpd, Pt p) {
     if (NULL == fpd) {
         return 0;
     }
-    if (fpd->count >= fpd->buf_size) {
+    if (fpd-&gt;count &gt;= fpd-&gt;buf_size) {
         return 0;
     }
 
     /* write coord data */
-    Pt *dst = &(fpd->buf[fpd->count]);
+    Pt *dst = &amp;(fpd-&gt;buf[fpd-&gt;count]);
     *dst = p;
 
     /* insert into grid*/
-    size_t row = (size_t)floor(p.y / fpd->cell_size);
-    size_t col = (size_t)floor(p.x / fpd->cell_size);
-    size_t index = row * fpd->num_cols + col;
-    if ((index > fpd->num_cols * fpd->num_rows) ||
-        (NULL != fpd->grid[index])
+    size_t row = (size_t)floor(p.y / fpd-&gt;cell_size);
+    size_t col = (size_t)floor(p.x / fpd-&gt;cell_size);
+    size_t index = row * fpd-&gt;num_cols + col;
+    if ((index &gt; fpd-&gt;num_cols * fpd-&gt;num_rows) ||
+        (NULL != fpd-&gt;grid[index])
     ) {
         return 0;
     }
-    fpd->grid[index] = dst;
+    fpd-&gt;grid[index] = dst;
 
     /* insert into active list */
-    fpd->active_list[fpd->list_len++] = &(fpd->buf[fpd->count]);
+    fpd-&gt;active_list[fpd-&gt;list_len++] = &amp;(fpd-&gt;buf[fpd-&gt;count]);
 
     /* advance */
-    fpd->count++;
+    fpd-&gt;count++;
     return 1;
 }</code></pre></div></details>
           <h3><a id="step-two-choose-another"></a>Step 2. Attempt to Choose Another Sample</h3>
@@ -536,7 +535,7 @@ static int fpd_insert(FpdState *fpd, Pt p) {
             <label for="step-two-one-c">C</label>
           <pre><code class="language-c">static int fpd_step(FpdState *fpd) {
     ...
-    Pt cur = *(fpd->active_list[fpd->list_len - 1]);
+    Pt cur = *(fpd-&gt;active_list[fpd-&gt;list_len - 1]);
     ...</code></pre></div></details></li>
               <li>Generate up to <code>max_tries</code> points uniformly in an annulus centered on the chosen active point with radii <code>min_dist</code> and <code>2 * min_dist</code>.
           <details><summary>code</summary><div class="tabs">
@@ -545,8 +544,8 @@ static int fpd_insert(FpdState *fpd, Pt p) {
           <pre><code class="language-c">static int fpd_step(FpdState *fpd) {
     ...
     size_t tries = 0;
-    while (tries++ < fpd->max_tries) {
-        Pt candidate = fpd_random_from_annulus(cur, fpd->min_dist_sq);
+    while (tries++ &lt; fpd-&gt;max_tries) {
+        Pt candidate = fpd_random_from_annulus(cur, fpd-&gt;min_dist_sq);
     ...</code></pre></div></details>
                 <div class="threecolumns">
                   <figure>
@@ -559,22 +558,22 @@ static int fpd_insert(FpdState *fpd, Pt p) {
             <label for="step-two-three-c">C</label>
           <pre><code class="language-c">/* return nonzero if candidate point seems ok */
 static int fpd_distance_check(const FpdState *fpd, const Pt p) {
-    const float min_dist_sq = fpd->min_dist_sq;
-    const size_t candidate_row = (size_t)floor(p.y / fpd->cell_size);
-    const size_t candidate_col = (size_t)floor(p.x / fpd->cell_size);
+    const float min_dist_sq = fpd-&gt;min_dist_sq;
+    const size_t candidate_row = (size_t)floor(p.y / fpd-&gt;cell_size);
+    const size_t candidate_col = (size_t)floor(p.x / fpd-&gt;cell_size);
     const size_t min_row = (size_t) fpd_max(1, candidate_row) - 1;
-    const size_t max_row = (size_t) fpd_min(candidate_row + 2, fpd->num_rows - 1);
+    const size_t max_row = (size_t) fpd_min(candidate_row + 2, fpd-&gt;num_rows - 1);
     const size_t min_col = (size_t) fpd_max(1, candidate_col) - 1;
-    const size_t max_col = (size_t) fpd_min(candidate_col + 1, fpd->num_cols - 1);
-    for (size_t row=min_row;row<=max_row;++row) {
-        for (size_t col=min_col;col<=max_col;++col) {
-            const size_t index = row * fpd->num_cols + col;
-            const Pt * ptr = fpd->grid[index];
+    const size_t max_col = (size_t) fpd_min(candidate_col + 1, fpd-&gt;num_cols - 1);
+    for (size_t row=min_row;row&lt;=max_row;++row) {
+        for (size_t col=min_col;col&lt;=max_col;++col) {
+            const size_t index = row * fpd-&gt;num_cols + col;
+            const Pt * ptr = fpd-&gt;grid[index];
             if (NULL == ptr) {
                 continue;
             }
             float d_sq = dist_sq(*ptr, p);
-            if (d_sq < min_dist_sq) {
+            if (d_sq &lt; min_dist_sq) {
                 /* found a point that it is too close to */
                 return 0;
             }
@@ -595,12 +594,12 @@ static int fpd_distance_check(const FpdState *fpd, const Pt p) {
             <label for="step-two-five-c">C</label>
           <pre><code class="language-c">static int fpd_step(FpdState *fpd) {
     ...
-    while (tries++ < fpd->max_tries) {
+    while (tries++ &lt; fpd-&gt;max_tries) {
         ...
-        if ((0.f <= candidate.x) &&
-            (candidate.x <= fpd->width) && 
-            (0.f <= candidate.y) &&
-            (candidate.y <= fpd->height) &&
+        if ((0.f &lt;= candidate.x) &amp;&amp;
+            (candidate.x &lt;= fpd-&gt;width) &amp;&amp; 
+            (0.f &lt;= candidate.y) &amp;&amp;
+            (candidate.y &lt;= fpd-&gt;height) &amp;&amp;
             fpd_distance_check(fpd, candidate)
         ) {
             return fpd_insert(fpd, candidate);
@@ -617,16 +616,15 @@ static int fpd_distance_check(const FpdState *fpd, const Pt p) {
             <label for="step-two-six-c">C</label>
           <pre><code class="language-c">static int fpd_step(FpdState *fpd) {
     ...
-    while (tries++ < fpd->max_tries) {
+    while (tries++ &lt; fpd-&gt;max_tries) {
         ...
     }
 
     /* retry limit exceeded, remove from active list */
-    fpd->list_len--;
+    fpd-&gt;list_len--;
 
     return 1;
-}
-</code></pre></div></details>
+}</code></pre></div></details>
                 <div class="threecolumns">
                   <figure>
                     <img src="step2.6.svg" alt="Removing points after failed attempts."/>
@@ -639,37 +637,37 @@ static int fpd_distance_check(const FpdState *fpd, const Pt p) {
             <label for="step-two-c">C</label>
           <pre><code class="language-c">/* nonzero if algorithm is over or buffer is full */
 static int fpd_done(const FpdState *fpd) {
-    return (fpd->count >= fpd->max_points) || (fpd->list_len == 0);
+    return (fpd-&gt;count &gt;= fpd-&gt;max_points) || (fpd-&gt;list_len == 0);
 }
 
 int fast_poisson_disk(...) {
     ...    
-    /* keep placing more points until we can't */
-    while (!fpd_done(&fpd)) {
-        if (!fpd_step(&fpd)) {
-            fpd_cleanup(&fpd);
+    /* keep placing more points until we can&#39;t */
+    while (!fpd_done(&amp;fpd)) {
+        if (!fpd_step(&amp;fpd)) {
+            fpd_cleanup(&amp;fpd);
             return 0;
         }
         *out_num_points = fpd.count;
     }
 
     *out_num_points = fpd.count;
-    fpd_cleanup(&fpd);
+    fpd_cleanup(&amp;fpd);
     return 1;
 }
 
-/* free resources allocated by the FpdState. But not the FpdState itself. That's on the stack. */
+/* free resources allocated by the FpdState. But not the FpdState itself. That&#39;s on the stack. */
 static int fpd_cleanup(FpdState *fpd) {
     if (NULL == fpd) {
         return 0;
     }
-    if (NULL != fpd->grid) {
-        free(fpd->grid);
-        fpd->grid = NULL;
+    if (NULL != fpd-&gt;grid) {
+        free(fpd-&gt;grid);
+        fpd-&gt;grid = NULL;
     }
-    if (NULL != fpd->active_list) {
-        free(fpd->active_list);
-        fpd->active_list = NULL;
+    if (NULL != fpd-&gt;active_list) {
+        free(fpd-&gt;active_list);
+        fpd-&gt;active_list = NULL;
     }
     return 1;
 }</code></pre></div></details>

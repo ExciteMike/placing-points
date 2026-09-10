@@ -198,10 +198,10 @@ static int config_check() {
 static float distance_to_nearest_point(const Fpd *fpd, const Pt p) {
     const size_t candidate_row = (size_t)floor(p.y / (float)CELL_SIZE);
     const size_t candidate_col = (size_t)floor(p.x / (float)CELL_SIZE);
-    const size_t min_row = max(1, candidate_row) - 1;
-    const size_t max_row = min(candidate_row + 2, MAX_ROWS - 1);
-    const size_t min_col = max(1, candidate_col) - 1;
-    const size_t max_col = min(candidate_col + 1, MAX_COLS - 1);
+    const size_t min_row = max(2, candidate_row) - 2;
+    const size_t max_row = min(candidate_row + 3, MAX_ROWS - 1);
+    const size_t min_col = max(2, candidate_col) - 2;
+    const size_t max_col = min(candidate_col + 3, MAX_COLS - 1);
     float nearest = FLT_MAX;
     for (size_t row=min_row;row<=max_row;++row) {
         for (size_t col=min_col;col<=max_col;++col) {
@@ -284,8 +284,8 @@ static void insert_point(Fpd *fpd, Script *script, Pt p) {
     ++(fpd->n_pts);
 
     /* insert into grid*/
-    size_t row = (size_t)floor(p.y / CELL_SIZE);
-    size_t col = (size_t)floor(p.x / CELL_SIZE);
+    size_t row = min(MAX_ROWS-1, (size_t)floor(p.y / CELL_SIZE));
+    size_t col = min(MAX_COLS-1, (size_t)floor(p.x / CELL_SIZE));
     fpd->grid.rows[row].cells[col] = new_index;
 
     /* insert into active list */

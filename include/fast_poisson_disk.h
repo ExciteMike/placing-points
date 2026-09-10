@@ -160,10 +160,10 @@ static int fpd_distance_check(const FpdState *fpd, const Pt p) {
     const float min_dist_sq = fpd->min_dist_sq;
     const size_t candidate_row = (size_t)floor(p.y / fpd->cell_size);
     const size_t candidate_col = (size_t)floor(p.x / fpd->cell_size);
-    const size_t min_row = (size_t) fpd_max(1, candidate_row) - 1;
-    const size_t max_row = (size_t) fpd_min(candidate_row + 2, fpd->num_rows - 1);
-    const size_t min_col = (size_t) fpd_max(1, candidate_col) - 1;
-    const size_t max_col = (size_t) fpd_min(candidate_col + 1, fpd->num_cols - 1);
+    const size_t min_row = (size_t) fpd_max(2, candidate_row) - 2;
+    const size_t max_row = (size_t) fpd_min(candidate_row + 3, fpd->num_rows - 1);
+    const size_t min_col = (size_t) fpd_max(2, candidate_col) - 2;
+    const size_t max_col = (size_t) fpd_min(candidate_col + 3, fpd->num_cols - 1);
     for (size_t row=min_row;row<=max_row;++row) {
         for (size_t col=min_col;col<=max_col;++col) {
             const size_t index = row * fpd->num_cols + col;
@@ -239,7 +239,7 @@ static int fpd_insert(FpdState *fpd, Pt p) {
     size_t row = (size_t)floor(p.y / fpd->cell_size);
     size_t col = (size_t)floor(p.x / fpd->cell_size);
     size_t index = row * fpd->num_cols + col;
-    if ((index > fpd->num_cols * fpd->num_rows) ||
+    if ((index >= fpd->num_cols * fpd->num_rows) ||
         (NULL != fpd->grid[index])
     ) {
         return 0;

@@ -1,0 +1,128 @@
+<svg width="240" height="180" xmlns="http://www.w3.org/2000/svg">
+<rect x="0" y="0" width="240" height="180" fill="#f9f9f9" />
+<style type="text/css">
+#a00 {animation:a00 6s linear infinite}
+@keyframes a00 {
+0%,0.0%,100.0%,100%{transform:translate(31.7px,8.9px) scale(0)}
+0.0%,85.7%{transform:translate(0,0) scale(1)}
+}
+#a01 {animation:a01 6s linear infinite}
+@keyframes a01 {
+0%,0.0%,100.0%,100%{transform:translate(77.1px,22.1px) scale(0)}
+0.0%,85.7%{transform:translate(0,0) scale(1)}
+}
+#a02 {animation:a02 6s linear infinite}
+@keyframes a02 {
+0%,0.0%,100.0%,100%{transform:translate(66.4px,72.0px) scale(0)}
+0.0%,85.7%{transform:translate(0,0) scale(1)}
+}
+#a05 {animation:a05 6s linear infinite}
+@keyframes a05 {
+0%,42.9%,100.0%,100%{transform:translate(105.3px,94.7px) scale(0)}
+57.1%,85.7%{transform:translate(0,0) scale(1)}
+}
+#c015{animation:c015 6s linear infinite}
+@keyframes c015 {
+0%,0.0%,71.4%,100%{r:0}
+14.3%,57.1%{r:12px}
+14.3%{fill:#f9f9f9}
+57.1%{fill:lightpink}
+71.4%{fill:none}
+}
+#l015{animation:l015 6s linear infinite}
+@keyframes l015 {
+0%,0.0%,71.4%,100%{stroke-width:0}
+14.3%,57.1%{stroke-width:1px}
+}
+#c016{animation:c016 6s linear infinite}
+@keyframes c016 {
+0%,14.3%,71.4%,100%{r:0}
+28.6%,57.1%{r:12px}
+28.6%{fill:#f9f9f9}
+57.1%{fill:palegreen}
+71.4%{fill:none}
+}
+#l016{animation:l016 6s linear infinite}
+@keyframes l016 {
+0%,14.3%,71.4%,100%{stroke-width:0}
+28.6%,57.1%{stroke-width:1px}
+}
+#p00 {animation:p00 6s linear infinite}
+@keyframes p00 {
+0%, 0.0%,100%{r:0}
+0.0%,85.7%{r:6px}
+}
+#p01 {animation:p01 6s linear infinite}
+@keyframes p01 {
+0%, 0.0%,100%{r:0}
+0.0%,85.7%{r:6px}
+}
+#p02 {animation:p02 6s linear infinite}
+@keyframes p02 {
+0%, 0.0%,100%{r:0}
+0.0%,85.7%{r:6px}
+}
+#p03 {animation:p03 6s linear infinite}
+@keyframes p03 {
+0%, 0.0%,100%{r:0}
+0.0%,85.7%{r:6px}
+}
+#p04 {animation:p04 6s linear infinite}
+@keyframes p04 {
+0%, 0.0%,100%{r:0}
+0.0%,85.7%{r:6px}
+}
+#p05 {animation:p05 6s linear infinite}
+@keyframes p05 {
+0%, 28.6%,100%{r:0}
+42.9%,85.7%{r:6px}
+}
+</style>
+<g id="grid" stroke="#ccc">
+<line x1="0" y1="21.2" x2="240" y2="21.2" />
+<line x1="0" y1="42.4" x2="240" y2="42.4" />
+<line x1="0" y1="63.6" x2="240" y2="63.6" />
+<line x1="0" y1="84.9" x2="240" y2="84.9" />
+<line x1="0" y1="106.1" x2="240" y2="106.1" />
+<line x1="0" y1="127.3" x2="240" y2="127.3" />
+<line x1="0" y1="148.5" x2="240" y2="148.5" />
+<line x1="0" y1="169.7" x2="240" y2="169.7" />
+<line x1="0" y1="190.9" x2="240" y2="190.9" />
+<line x1="0" y1="212.1" x2="240" y2="212.1" />
+<line x1="0" y1="233.3" x2="240" y2="233.3" />
+<line x1="21.2" y1="0" x2="21.2" y2="180" />
+<line x1="42.4" y1="0" x2="42.4" y2="180" />
+<line x1="63.6" y1="0" x2="63.6" y2="180" />
+<line x1="84.9" y1="0" x2="84.9" y2="180" />
+<line x1="106.1" y1="0" x2="106.1" y2="180" />
+<line x1="127.3" y1="0" x2="127.3" y2="180" />
+<line x1="148.5" y1="0" x2="148.5" y2="180" />
+<line x1="169.7" y1="0" x2="169.7" y2="180" />
+<line x1="190.9" y1="0" x2="190.9" y2="180" />
+<line x1="212.1" y1="0" x2="212.1" y2="180" />
+<line x1="233.3" y1="0" x2="233.3" y2="180" />
+<line x1="254.6" y1="0" x2="254.6" y2="180" />
+<line x1="275.8" y1="0" x2="275.8" y2="180" /></g>
+<g fill="aliceblue" stroke="#999" stroke-width="1">
+<path d="M 31.7 -51.1 A 60.0 60.0 0 1 0 31.7 68.9 A 60.0 60.0 0 1 0 31.7 -51.1 Z M 31.7 -21.1 A 30.0 30.0 0 1 1 31.7 38.9 A 30.0 30.0 0 1 1 31.7 -21.1 Z " id="a00" />
+<path d="M 77.1 -37.9 A 60.0 60.0 0 1 0 77.1 82.1 A 60.0 60.0 0 1 0 77.1 -37.9 Z M 77.1 -7.9 A 30.0 30.0 0 1 1 77.1 52.1 A 30.0 30.0 0 1 1 77.1 -7.9 Z " id="a01" />
+<path d="M 66.4 12.0 A 60.0 60.0 0 1 0 66.4 132.0 A 60.0 60.0 0 1 0 66.4 12.0 Z M 66.4 42.0 A 30.0 30.0 0 1 1 66.4 102.0 A 30.0 30.0 0 1 1 66.4 42.0 Z " id="a02" />
+<path d="M 105.3 34.7 A 60.0 60.0 0 1 0 105.3 154.7 A 60.0 60.0 0 1 0 105.3 34.7 Z M 105.3 64.7 A 30.0 30.0 0 1 1 105.3 124.7 A 30.0 30.0 0 1 1 105.3 64.7 Z " id="a05" />
+</g>
+<g fill="#f9f9f9" fill-opacity="1" stroke="#999">
+<circle id="c015" cx="50.84" cy="40.53" r="22.7" />
+<circle id="c016" cx="105.33" cy="94.72" r="30.0" />
+</g>
+<g stroke="black">
+<line id="l015" x1="66.43" y1="72.03" x2="50.84" y2="40.53" stroke-width="2" />
+<line id="l016" x1="66.43" y1="72.03" x2="105.33" y2="94.72" stroke-width="2" />
+</g>
+<g fill="blue">
+<circle id="p00" cx="31.70" cy="8.86" r="6" />
+<circle id="p01" cx="77.12" cy="22.13" r="6" />
+<circle id="p02" cx="66.43" cy="72.03" r="6" />
+<circle id="p03" cx="38.96" cy="59.88" r="6" />
+<circle id="p04" cx="10.04" cy="108.04" r="6" />
+<circle id="p05" cx="105.33" cy="94.72" r="6" />
+</g>
+</svg>

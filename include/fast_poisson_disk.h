@@ -261,7 +261,7 @@ static int fpd_done(const FpdState *fpd) {
 }
 
 
-/* helper for fast_poisson_disk - do one iteration of the algorithm. returns nonzero if successful */
+/* do one iteration of the algorithm. returns nonzero if successful */
 static int fpd_step(FpdState *fpd) {
     if (NULL == fpd) {
         return 0;

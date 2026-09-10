@@ -31,7 +31,10 @@ enum {
     ANIMATION_LENGTH = 60,
     MAX_CANDIDATES = 1024,
     PAUSE_FRAMES = 30,
-    ANNULUS_OUTLINE_WIDTH = 1
+    JUMP_TO_FRAME = 0,
+    STOP_AT_FRAME = INT_MAX,
+    ANNULUS_OUTLINE_WIDTH = 1,
+    DO_CURTAIN = 1
 };
 static const char* POINT_COLOR = "blue";
 static const char* ANNULUS_FILL_COLOR = "aliceblue";
@@ -155,8 +158,11 @@ static void build_script(Script *script) {
 
 /** round `n` over `d` to an integer percentage */
 static float calc_pct(size_t n, size_t d) {
-    n = min(n, d);
-    d = max(1, d);
+    n = max(JUMP_TO_FRAME, min(n, d)) - JUMP_TO_FRAME;
+    d = max(JUMP_TO_FRAME+1, d) - JUMP_TO_FRAME;
+    size_t stop_at = max(JUMP_TO_FRAME, STOP_AT_FRAME) - JUMP_TO_FRAME;
+    n = min(n, stop_at);
+    d = min(d, stop_at);
     float linear = (float)n / (float)d;
     return 100.f * time_warp(linear);
 }
@@ -349,6 +355,8 @@ static void render_annuli(FILE *f, const Script *script) {
     float inner_radius = (float)MIN_DIST;
     fprintf(f, "\n<g fill=\"%s\" stroke=\"%s\" stroke-width=\"%d\">", ANNULUS_FILL_COLOR, ANNULUS_BORDER_COLOR, ANNULUS_OUTLINE_WIDTH);
     for (size_t idx=0;idx<script->n_points;++idx) {
+        if (script->annuli[idx].end < JUMP_TO_FRAME) { continue; }
+        if (script->annuli[idx].start > STOP_AT_FRAME) { continue; }
         Pt p = script->pts[idx];
         fprintf(f, "\n<path d=\"");
         fprintf(f, "M %.1f %.1f ", p.x, p.y - outer_radius);
@@ -404,6 +412,8 @@ static void render_candidates_css(FILE *f, const Script *script) {
 static void render_candidates(FILE *f, const Script *script) {
     fprintf(f, "\n<g fill=\"%s\" fill-opacity=\"%s\" stroke=\"%s\">", CANDIDATE_FILL_COLOR, CANDIDATE_FILL_OPACITY, CANDIDATE_OUTLINE_COLOR);
     for (size_t idx=0;idx<script->n_candidates;++idx) {
+        if (script->candidates[idx].times.end < JUMP_TO_FRAME) { continue; }
+        if (script->candidates[idx].times.start > STOP_AT_FRAME) { continue; }
         Pt p = script->candidates[idx].p;
         float d = script->candidates[idx].distance_to_nearest;
         fprintf(f, "\n<circle id=\"c%03zu\"", idx);
@@ -415,6 +425,8 @@ static void render_candidates(FILE *f, const Script *script) {
     fprintf(f, "\n</g>");
     fprintf(f, "\n<g stroke=\"%s\">", CANDIDATE_LINE_COLOR);
     for (size_t idx=0;idx<script->n_candidates;++idx) {
+        if (script->candidates[idx].times.end < JUMP_TO_FRAME) { continue; }
+        if (script->candidates[idx].times.start > STOP_AT_FRAME) { continue; }
         Pt p = script->candidates[idx].p;
         size_t parent_idx = script->candidates[idx].parent_idx;
         Pt parent = script->pts[parent_idx];
@@ -442,6 +454,7 @@ static void render_css(FILE *f, const Script *script) {
 
 /** write out CSS to animate the curtain */
 static void render_curtain_css(FILE *f, const Script *script) {
+    if (!DO_CURTAIN) { return; }
     fprintf(f, "\n#curtain{animation:curtain %ds linear infinite}", ANIMATION_LENGTH);
     fprintf(f, "\n@keyframes curtain{");
     size_t frame1 = script->n_frames - PAUSE_FRAMES;
@@ -513,7 +526,9 @@ static int render_script(const char *path, const Script *script) {
     render_grid(f);
     render_annuli(f, script);
     render_candidates(f, script);
-    fprintf(f, "\n<rect id=\"curtain\" x=\"%d\" y=\"0\" width=\"%d\" height=\"%d\" fill=\"%s\" />", -WIDTH, WIDTH, HEIGHT, BACKGROUND_COLOR );
+    if (DO_CURTAIN) {
+        fprintf(f, "\n<rect id=\"curtain\" x=\"%d\" y=\"0\" width=\"%d\" height=\"%d\" fill=\"%s\" />", -WIDTH, WIDTH, HEIGHT, BACKGROUND_COLOR );
+    }
     render_points(f, script);
 
     fprintf(f, "\n</svg>");
@@ -594,6 +609,9 @@ static void script_clear_candidates(Script *script, size_t candidates_begin, siz
 
 /** custom ease function for overall timing */
 static float time_warp(float t) {
+    if ((JUMP_TO_FRAME != 0)||(STOP_AT_FRAME!=INT_MAX)) {
+        return t;
+    }
     float t_sq = t*t;
     float t_cu = t*t*t;
     return 0.5f*t_cu - 1.5f*t_sq + 2.f*t;

@@ -1,0 +1,71 @@
+<svg width="240" height="180" xmlns="http://www.w3.org/2000/svg">
+<rect x="0" y="0" width="240" height="180" fill="#f9f9f9" />
+<style type="text/css">
+#a00 {animation:a00 6s linear infinite}
+@keyframes a00 {
+0%,15.7%,100.0%,100%{transform:translate(31.7px,8.9px) scale(0)}
+29.4%,95.8%{transform:translate(0,0) scale(1)}
+}
+#c000{animation:c000 6s linear infinite}
+@keyframes c000 {
+0%,29.4%,68.8%,100%{r:0}
+41.4%,60.9%{r:12px}
+41.4%{fill:#f9f9f9}
+60.9%{fill:palegreen}
+68.8%{fill:none}
+}
+#l000{animation:l000 6s linear infinite}
+@keyframes l000 {
+0%,29.4%,68.8%,100%{stroke-width:0}
+41.4%,60.9%{stroke-width:1px}
+}
+#p00 {animation:p00 6s linear infinite}
+@keyframes p00 {
+0%, 0.0%,100%{r:0}
+15.7%,95.8%{r:6px}
+}
+#p01 {animation:p01 6s linear infinite}
+@keyframes p01 {
+0%, 41.4%,100%{r:0}
+51.9%,95.8%{r:6px}
+}
+</style>
+<g id="grid" stroke="#ccc">
+<line x1="0" y1="21.2" x2="240" y2="21.2" />
+<line x1="0" y1="42.4" x2="240" y2="42.4" />
+<line x1="0" y1="63.6" x2="240" y2="63.6" />
+<line x1="0" y1="84.9" x2="240" y2="84.9" />
+<line x1="0" y1="106.1" x2="240" y2="106.1" />
+<line x1="0" y1="127.3" x2="240" y2="127.3" />
+<line x1="0" y1="148.5" x2="240" y2="148.5" />
+<line x1="0" y1="169.7" x2="240" y2="169.7" />
+<line x1="0" y1="190.9" x2="240" y2="190.9" />
+<line x1="0" y1="212.1" x2="240" y2="212.1" />
+<line x1="0" y1="233.3" x2="240" y2="233.3" />
+<line x1="21.2" y1="0" x2="21.2" y2="180" />
+<line x1="42.4" y1="0" x2="42.4" y2="180" />
+<line x1="63.6" y1="0" x2="63.6" y2="180" />
+<line x1="84.9" y1="0" x2="84.9" y2="180" />
+<line x1="106.1" y1="0" x2="106.1" y2="180" />
+<line x1="127.3" y1="0" x2="127.3" y2="180" />
+<line x1="148.5" y1="0" x2="148.5" y2="180" />
+<line x1="169.7" y1="0" x2="169.7" y2="180" />
+<line x1="190.9" y1="0" x2="190.9" y2="180" />
+<line x1="212.1" y1="0" x2="212.1" y2="180" />
+<line x1="233.3" y1="0" x2="233.3" y2="180" />
+<line x1="254.6" y1="0" x2="254.6" y2="180" />
+<line x1="275.8" y1="0" x2="275.8" y2="180" /></g>
+<g fill="aliceblue" stroke="#999" stroke-width="1">
+<path d="M 31.7 -51.1 A 60.0 60.0 0 1 0 31.7 68.9 A 60.0 60.0 0 1 0 31.7 -51.1 Z M 31.7 -21.1 A 30.0 30.0 0 1 1 31.7 38.9 A 30.0 30.0 0 1 1 31.7 -21.1 Z " id="a00" />
+</g>
+<g fill="#f9f9f9" fill-opacity="1" stroke="#999">
+<circle id="c000" cx="77.12" cy="22.13" r="30.0" />
+</g>
+<g stroke="black">
+<line id="l000" x1="31.70" y1="8.86" x2="77.12" y2="22.13" stroke-width="2" />
+</g>
+<g fill="blue">
+<circle id="p00" cx="31.70" cy="8.86" r="6" />
+<circle id="p01" cx="77.12" cy="22.13" r="6" />
+</g>
+</svg>

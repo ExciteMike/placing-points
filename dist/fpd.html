@@ -172,6 +172,20 @@
       .tabs input[type="radio"]:checked + label + pre {
         display: block;
       }
+      details {
+        border: 1px solid #ccc;
+        background-color: ivory;
+      }
+      details summary {
+        cursor:pointer;
+        padding: 0 0 0 4px;
+      }
+      details:not([open]) summary::before {
+        content:"show ";
+      }
+      details[open] summary::before {
+        content:"hide ";
+      }
     </style>
   </head>
   <body>
@@ -200,14 +214,15 @@
                       <li><a href="#inputs-to-the-algorithm">Inputs to the Algorithm</a></li>
                       <li><a href="#step-zero-initialization">Step 0. Initialization</a></li>
                       <li><a href="#step-one-first-sample">Step 1. First Sample</a></li>
+                      <li><a href="#step-two-choose-another">Step 2. Choose Another Sample</a></li>
                     </ol>
                 </li>
             </ol>
         </div>
         <section>
             <h2><a id="motivation"></a>Motivation</h2>
-            <p>In videogames and computer graphics, we often get want to distribute things throughout a region. Things like placing trees in a virtual forest or a raytracer casting out rays to determine pixel color. Depending on how you approach it, there are a couple of pitfalls you could fall into! A regular grid looks artificial and produces undesirable <a href="https://en.wikipedia.org/wiki/Aliasing">aliasing</a> effects and <a href="https://en.wikipedia.org/wiki/Moir%C3%A9_pattern">Moiré patterns</a>. Using independent random numbers will produce clustering or graininess because some regions will be dense and others sparse.</p>
-            <p>What we need is a balance between that clumpy chaos of pure randomness and the unnatural order of grids. The points should look evenly spaced when viewed at large scales, but unstructured at small scales. Distributions meeting those criteria are sometimes called "blue noise."</p>
+            <p>In videogames and computer graphics, we often want to distribute things throughout a region. Things like placing trees in a virtual forest or a raytracer casting out rays to determine pixel color. Depending on how you approach it, there are a couple of pitfalls you could fall into! A regular grid looks artificial and its periodicity and <dfn title="non-uniformity in different directions">anisotropy</dfn> can lead to undesirable <a href="https://en.wikipedia.org/wiki/Aliasing">aliasing</a> and <a href="https://en.wikipedia.org/wiki/Moir%C3%A9_pattern">Moiré patterns</a> efffects. Using independent random numbers will produce clustering or graininess because some regions will be dense and others sparse.</p>
+            <p>What we need is a balance between that clumpy chaos of pure randomness and the unnatural order of grids. The points should look evenly spaced when viewed at large scales, while still not falling into an obvious pattern at small scales. Distributions meeting those criteria are sometimes called "blue noise."</p>
             <div class="threecolumns">
               <figure>
                 <img src="intro_grid.svg" alt="250 Points distributed on a uniform grid"/>
@@ -215,7 +230,7 @@
               </figure>
               <figure>
                 <img src="intro_white.svg" alt="250 Points distributed randomly"/>
-                <figcaption>250 Points distributed randomly</figcaption>
+                <figcaption>250 Points distributed randomly (a Poisson point process)</figcaption>
               </figure>
               <figure>
                 <img src="intro_blue.svg" alt="Blue noise (250 points)"/>
@@ -225,9 +240,9 @@
         </section>
         <section>
           <h2><a id="colors-of-noise"></a>Colors of Noise</h2>
-          <p>The concept of colors of noise comes from frequency analysis in engineering fields and signal processing. The name is an analogy with visible light: a way to characterize the data according to how much of its "power" is at different frequencies. In audio, we experience this as pitch and timbre; in light, we perceive it as color.</p>
-          <p>White noise is probably the most familiar "color of noise". It is so named because, like white light, it has an even balance of frequencies. If instead more low-frequency light enters our eye, we perceive a redder color. When the higher frequencies dominate, we perceive it as bluer.</p>
-          <p>In the case of a generated forest, we want a relatively even density of trees, with no large areas of the forest looking much different compared to another large area. That means we want lower power at low frequencies. And at the same time, we want to prevent trees from occurring too close together. That tells us that we want higher power at higher frequencies. Blue noise!</p>
+          <p>The concept of colors of noise comes signal processing in audio engineering, electronic, and other fields. The name is an analogy with visible light: a way to characterize the data according to how much of its "power" is at different frequencies. In audio, we experience this as pitch and timbre; in light, we perceive it as color.</p>
+          <p>White noise is probably the most familiar "color of noise". It is so named because, like white light, no particular range of frequencies dominates. Red is at the low end of visible light frequencies, so when noise favors lower frequencies, we call it red noise (or Brownian noise, but that one is named after Robert Brown, not the color). Likewise when the higher frequencies of light dominate, we call it blue noise in reference to higher-frequency light appearing bluer to us.</p>
+          <p>In the case of a procedurally generated forest, we want a relatively even density of trees, with no large areas of the forest looking much different compared to another large area. That means we want lower power at low frequencies. And at the same time, we want to prevent trees from occurring too close together. That tells us that we want higher power at higher frequencies. Blue noise!</p>
           <div class="threecolumns">
             <figure>
               <img src="colors_of_noise_white.svg" alt="White noise (top) and its flat power spectrum (bottom)"/>
@@ -242,15 +257,15 @@
               <figcaption>Red noise AKA Brownian noise (top) and its power spectrum (bottom), which favors lower frequencies.</figcaption>
             </figure>
           </div>
-          <p>It might seem odd to think of frequencies and power spectra when we are trying to plant some virtual trees. And it probably should! These concepts are usually about how a value varies over time, but we are choosing discrete points within a multidimensional space. It would be reasonable to think of the name "blue noise" as metaphorical.</p>
-          <p>It does make sense, though, if you want to follow the math! The varying value is the average density of points, and what it varies over is distance from a reference point. Take the average after using all points as your reference point, and you have a noisy signal for which you can find the power spectrum the same as with an audio signal! If we chose our points well, this should look roughly like the blue noise power spectrum. (Not strictly, though: we would want a low-frequency cutoff and for it to flatten out like white noise in high frequencies after a peak that corresponds to the average distance between nearby points). TODO: cite https://cv.ulichney.com/papers/2000-halftoning-review.pdf</p>
+          <p>It might seem odd to think of frequencies and power spectra when we are trying to plant some virtual trees. And it probably should! These concepts are usually about how a value varies over time, not a set of discrete points. It would be reasonable to think of the name "blue noise" as metaphorical.</p>
+          <p>It does make sense, though, if you want to follow the math! While a set of points is not the sort of thing one does frequency analysis with, we can construct from it a measure of how likely it is to find another point at a given distance from another. We can then find the power spectrum of that. If we chose our points well, this should look roughly like a blue noise power spectrum.</p>
         </section>
         <section>
           <h2><a id="possible-approaches"></a>Possible Approaches</h2>
           <p>The approach I am going to go into most detail about here and the one I would most often recommend is referred to as Fast Poisson Disk Sampling, from the title of a <cite><a href="./bridson-siggraph07-poissondisk.pdf">SIGGRAPH paper by Robert Bridson</a></cite>. I'll mention a few others first, though, because they are interesting in their own right.</p>
 
           <h3><a id="jittered-grid"></a>Jittered Grid</h3>
-          <p>In a way, a regular grid is actually pretty close to what we want. The points are very evenly spaced; this problem is that they are <em>too</em> evenly spaced. What if we took the points on that grid and randomly pushed them around a bit? With a large jitter, we increase clustering. With a small jitter, we keep the regularity and <dfn title="non-uniformity in different directions">anisotropy</dfn> of the original grid. One must come at the expense of the other with this approach. It is very fast, though, and may be close enough for many use cases!</p>
+          <p>In a way, a regular grid is actually pretty close to what we want. The points are very evenly spaced; the problem is that they are <em>too</em> evenly spaced. What if we took the points on that grid and randomly pushed them around a bit? That's the jittered grid technique. In my experiments with it, while it certainly improves on both pure white noise and on a regular grid, it has significantly more problems with clustering and <dfn title="non-uniformity in different directions">anisotropy</dfn> compared to the other approaches I discuss here. It is very fast, though, and may be close enough for many use cases!</p>
           <div class="threecolumns">
             <figure>
               <img src="jittered_grid_square.svg" alt="Animation illustrating jittered grid points."/>
@@ -263,7 +278,8 @@
           </div>
 
           <h3><a id="dart-throwing"></a>Dart Throwing</h3>
-          <p>We can just "throw darts" at the region and use those points. By which I mean that for each coordinate of a point, we just take a uniform random variable scaled to match the size of the region. This generates a white noise distribution with the clumping and gapping problems as seen at the top of this article. But if during that process we reject darts that land within some radius of other darts, the revised process gives us much better results. The cost is that we need potentially need to throw very many more darts, depending on how dense a packing we need relative to the radius.</p>
+          <p>We can just "throw darts" at the region and use those points. By which I mean that for each coordinate of a point, we just take a uniform random variable scaled to match the size of the region. This generates a white-noise point distribution with the clumping and gapping problems as seen at the top of this article. But if during that process we reject darts that land within some radius of other darts, the revised process gives us much better results. The cost is that we potentially need to throw very many more darts to find valid ones as density increases.</p>
+          <p></p>
           <div class="threecolumns">
             <figure>
               <img src="dart_throwing.svg" alt="Dart throwing animation"/>
@@ -272,7 +288,7 @@
           </div>
 
           <h3><a id="mitchells-best-candidate"></a>Mitchell's Best Candidate</h3>
-          <p>The Mitchell's Best Candidate approach is a variation of dart throwing. Instead of throwing darts one at a time and rejecting them, we throw in batches and keep only the best dart of each batch. "Best" in this case means the one that is farthest from all previously accepted points. This can become quite slow as the number of accepted points grows, but it does produce good results.</p>
+          <p>The Mitchell's Best Candidate algorithm is a variation of dart throwing. Instead of throwing darts one at a time and rejecting them, we throw in batches and keep only the best dart of each batch. "Best" in this case means the candidate whose distance from its nearest previously accepted points is greatest. This can become quite slow as the number of accepted points grows, but it does produce good results.</p>
           <div class="threecolumns">
             <figure>
               <img src="mitchells_best.svg" alt="Animation illustrating Mitchell's Best Candidate."/>
@@ -281,7 +297,7 @@
           </div>
 
           <h3><a id="more-exotic-approaches"></a>More Exotic Approaches</h3>
-          <p>People have come up with many ways to do this with various advantages and disadvantages. Tile-based methods make a library of smaller distributions of blue noise and then combine them to fill larger regions. An <dfn title="An aperiodic tiling can cover the whole surface without ever perfectly repeating">aperiodic tiling</dfn> such as Penrose tilings can be used as the basis for the points. Points generated by other methods can be <dfn title="iteratively adjusted to spread them out more evenly">relaxed</dfn> to produce a smoother distribution. I'm sure there are more that I didn't think of!</p>
+          <p>People have come up with many ways to do this with various advantages and disadvantages. Tile-based methods make a library of smaller distributions of blue noise and then combine them to fill larger regions. An <dfn title="An aperiodic tiling can cover the whole surface without ever perfectly repeating">aperiodic tiling</dfn> can be used as the basis for the points. Points generated by other methods can be <dfn title="iteratively adjusted to spread them out more evenly">relaxed</dfn> to produce a smoother distribution. I'm sure there are more that I didn't think of!</p>
           <div class="threecolumns">
             <figure>
               <img src="tile_based.svg" alt="A simplistic tile-based approach."/>
@@ -299,13 +315,13 @@
         </section>
         <section>
           <h2><a id="fast-poisson-disk-sampling"></a>Fast Poisson Disk Sampling</h2>
-          <p>The fast Poisson disk method from <cite><a href="./bridson-siggraph07-poissondisk.pdf">Bridson's paper</a></cite> seems to have become the most common approach. It uses a couple of clever tricks to operate in linear time (in the number of points generated) and still produce high-quality results.</p>
-          <p>The process starts from one arbitrary seed point in the region. Future points are then generated by testing candidate points chosen from an <dfn title="an annulus is the doughnut-shaped region bounded by two concentric circles">annulus</dfn> around previously accepted points. It continues until the region gets too crowded to find more.</p>
-          <p>There are two tricks to make this process fast. The region is divided into a grid that allows the distance testing to consider only very few points. It also tracks a list of &quot;active&quot; points that can still serve as the basis for future candidates, removing points from the list as the space around them fills.</p>
+          <p>The fast Poisson disk method from <cite><a href="./bridson-siggraph07-poissondisk.pdf">Bridson's paper</a></cite> seems to have become the most common approach. The "Poisson disk" part is from the name of the blue-noise-like distributions with a hard minimum distance between points. The "fast" part comes from a couple of clever tricks it uses to operate in linear time (in the number of points generated) and still produce high-quality results.</p>
+          <p>The process starts from one randomly chosen seed point. Future points are then generated by testing candidate points chosen from an <dfn title="an annulus is the doughnut-shaped region bounded by two concentric circles">annulus</dfn> around previously accepted points. It continues until the region gets too crowded to find more.</p>
+          <p>There are two tricks to make this process fast. The region is divided into a grid that allows the distance testing to consider only very few points. It also tracks a list of &quot;active&quot; points that can still serve as the basis for future candidates, and removes points from that list if after a fixed number of attempts to generate a new point based on it fails to generate a new valid point.</p>
           <p>Bridson's algorithm works in any number of dimensions, but for simplicity I present it here in only two.</p>
           <h3><a id="data-structures"></a>Data Structures</h3>
-          <p>The <code>Pt</code> type is just two floats. Trivial to convert to/from the similar type you are probably already using.</p>
-          <div class="tabs">
+          <p>The <code>Pt</code> type is just two floats.</p>
+          <details><summary>code</summary><div class="tabs">
             <input type="radio" id="pt" name="tab-group-pt" checked>
             <label for="pt">C</label>
             <pre><code class="language-c">/** a point in two dimensions */
@@ -315,10 +331,9 @@ typedef union Pt {
         float x;
         float y;
    };
-} Pt;</code></pre>
-          </div>
+} Pt;</code></pre></div></details>
           <p>Internally, the algorithm must maintain a grid structure and list of active points. The <code>FpdState</code> combines those, the settings, and the output into one package for convenience.</p>
-          <div class="tabs">
+          <details><summary>code</summary><div class="tabs">
             <input type="radio" id="fpdstate" name="tab-group-fpdstate" checked>
             <label for="fpdstate">C</label>
             <pre><code class="language-c">/** everything we need to track as we step the algorithm */
@@ -351,7 +366,7 @@ typedef struct FpdState {
     /* each item in the list points to the first of the coords for a point */
     Pt **active_list;
     size_t list_len;
-} FpdState;</code></pre></div>
+} FpdState;</code></pre></div></details>
           <h3><a id="inputs-to-the-algorithm"></a>Inputs to the Algorithm</h3>
           <p>Our fast Poisson disk function takes the following inputs:
             <table class="paramstable">
@@ -382,7 +397,7 @@ typedef struct FpdState {
             </table>
             </ul>
           </p>
-          <div class="tabs">
+          <details><summary>code</summary><div class="tabs">
             <input type="radio" id="inputs-c" name="tab-group-inputs" checked>
             <label for="inputs-c">C</label>
             <pre><code class="language-c">int fast_poisson_disk(
@@ -394,10 +409,10 @@ typedef struct FpdState {
     size_t max_tries,
     size_t *out_num_points
 ) {
-</code></pre></div>
+</code></pre></div></details>
           <h3><a id="step-zero-initialization"></a>Step 0. Initialization</h3>
           <p>To get started, we have to initialize those data structures above. We've initially generated zero points, so <code>out_num_points</code> is set right away. The rest of initialization is handled in the <code>fpd_init</code> function.</p>
-          <div class="tabs">
+          <details><summary>code</summary><div class="tabs">
             <input type="radio" id="init-c" name="tab-group-init" checked>
             <label for="init-c">C</label>
           <pre><code class="language-c">int fast_poisson_disk(...) {
@@ -422,10 +437,10 @@ typedef struct FpdState {
         return 0;
     }
 ...
-</code></pre></div>
+</code></pre></div></details>
           <h4>Initialize the grid</h4>
           <p>If we can guarantee that we won't need more than one point in a grid cell, then each cell of the grid can be just a single pointer to the contained point or <code>NULL</code>. We can guarantee this by setting the diagonal of each cell to the minimum distance between points, so that wherever in a cell the point is, the whole cell is within that distance. The side length of such a cell is equal to that distance divided by the square root of the number of dimensions. From that, we can calculate the number of rows and columns and allocate the space for our grid.</p>
-          <div class="tabs">
+          <details><summary>code</summary><div class="tabs">
             <input type="radio" id="init-grid-c" name="tab-group-init-grid" checked>
             <label for="init-grid-c">C</label>
           <pre><code class="language-c">static int fpd_init(...) {
@@ -440,10 +455,10 @@ typedef struct FpdState {
     if (NULL == fpd->grid) {
         return 0;
     }
-    ...</code></pre></div>
+    ...</code></pre></div></details>
           <h4>Initialize the list</h4>
           <p>To keep things simple, I am allocating the maximum amount of space that the active list could need all at once up front. In practice, sometimes you won't generate that many points, and even if you do, they won't usually all be active at once. So there may be benefits to starting smaller and only increasing the buffer size as needed. For this example however I allocate based on a worst case of either the output buffer size or the number of grid squares, whichever is smaller. The initial length of the list is zero.</p>
-          <div class="tabs">
+          <details><summary>code</summary><div class="tabs">
             <input type="radio" id="init-list-c" name="tab-group-init-list" checked>
             <label for="init-list-c">C</label>
           <pre><code class="language-c">static int fpd_init(...) {
@@ -455,45 +470,225 @@ typedef struct FpdState {
         return 0;
     }
     fpd->list_len = 0;
-    ...</code></pre></div>
+    ...</code></pre></div></details>
           <h3><a id="step-one-first-sample"></a>Step 1. First Sample</h3>
+          <div class="threecolumns">
+            <figure>
+              <img src="step2.1.svg" alt="An initial point"/>
+              <figcaption>An initial point.</figcaption>
+            </figure>
+          </div>
+          <p>The first step is to insert one seed point from which the rest of them will eventualy be generated. There's no special reason for it to be in any particular place, so this code just chooses it uniformly in the available region. A couple of suppporting functions appear in this snippet as well: the <code>fpd_randrange</code> function chooses a value uniformly in the provided range and <code>fpd_insert</code> updates bookkeeping for a newly accepted point.</p>
+          <details><summary>code</summary><div class="tabs">
+            <input type="radio" id="first-sample-c" name="tab-group-first-sample" checked>
+            <label for="first-sample-c">C</label>
+          <pre><code class="language-c">int fast_poisson_disk(...) {
+...
+    if (!fpd_insert(&fpd, (Pt) { fpd_randrange(0, width), fpd_randrange(0, height) })) {
+        fpd_cleanup(&fpd);
+        return 0;
+    }
+    *out_num_points = fpd.count;
+...
+}
+
+static float fpd_randrange(const float min, const float max) {
+    return min + (max - min) * ((float)rand())/((float)RAND_MAX);
+}
+
+/** add a new point with all its bookkeeping. returns nonzero if successful */
+static int fpd_insert(FpdState *fpd, Pt p) {
+    if (NULL == fpd) {
+        return 0;
+    }
+    if (fpd->count >= fpd->buf_size) {
+        return 0;
+    }
+
+    /* write coord data */
+    Pt *dst = &(fpd->buf[fpd->count]);
+    *dst = p;
+
+    /* insert into grid*/
+    size_t row = (size_t)floor(p.y / fpd->cell_size);
+    size_t col = (size_t)floor(p.x / fpd->cell_size);
+    size_t index = row * fpd->num_cols + col;
+    if ((index > fpd->num_cols * fpd->num_rows) ||
+        (NULL != fpd->grid[index])
+    ) {
+        return 0;
+    }
+    fpd->grid[index] = dst;
+
+    /* insert into active list */
+    fpd->active_list[fpd->list_len++] = &(fpd->buf[fpd->count]);
+
+    /* advance */
+    fpd->count++;
+    return 1;
+}</code></pre></div></details>
+          <h3><a id="step-two-choose-another"></a>Step 2. Attempt to Choose Another Sample</h3>
+          <p>Then, for as long as we still have points in the active list and the output buffer has room, we do the following.
+            <ol>
+              <li>Choose a point from the active list. Bridson chose one at random, but my results seem fine just taking the most recent one. It simplifies removing it later if we know it is the last.
+          <details><summary>code</summary><div class="tabs">
+            <input type="radio" id="step-two-one-c" name="tab-group-step-two-one" checked>
+            <label for="step-two-one-c">C</label>
+          <pre><code class="language-c">static int fpd_step(FpdState *fpd) {
+    ...
+    Pt cur = *(fpd->active_list[fpd->list_len - 1]);
+    ...</code></pre></div></details></li>
+              <li>Generate up to <code>max_tries</code> points uniformly in an annulus centered on the chosen active point with radii <code>min_dist</code> and <code>2 * min_dist</code>.
+          <details><summary>code</summary><div class="tabs">
+            <input type="radio" id="step-two-two-c" name="tab-group-step-two-two" checked>
+            <label for="step-two-two-c">C</label>
+          <pre><code class="language-c">static int fpd_step(FpdState *fpd) {
+    ...
+    size_t tries = 0;
+    while (tries++ < fpd->max_tries) {
+        Pt candidate = fpd_random_from_annulus(cur, fpd->min_dist_sq);
+    ...</code></pre></div></details>
+                <div class="threecolumns">
+                  <figure>
+                    <img src="step2.2.svg" alt="Generating a new point from an active point."/>
+                  <figcaption>Generating a new point from an active point.</figcaption>
+                  </figure></div></li>
+              <li>For each of those points, see if it is within our region and at least <code>min_dist</code> from any previously accepted point, using the grid to only test nearby ones.
+          <details><summary>code</summary><div class="tabs">
+            <input type="radio" id="step-two-three-c" name="tab-group-step-two-three" checked>
+            <label for="step-two-three-c">C</label>
+          <pre><code class="language-c">/* return nonzero if candidate point seems ok */
+static int fpd_distance_check(const FpdState *fpd, const Pt p) {
+    const float min_dist_sq = fpd->min_dist_sq;
+    const size_t candidate_row = (size_t)floor(p.y / fpd->cell_size);
+    const size_t candidate_col = (size_t)floor(p.x / fpd->cell_size);
+    const size_t min_row = (size_t) fpd_max(1, candidate_row) - 1;
+    const size_t max_row = (size_t) fpd_min(candidate_row + 2, fpd->num_rows - 1);
+    const size_t min_col = (size_t) fpd_max(1, candidate_col) - 1;
+    const size_t max_col = (size_t) fpd_min(candidate_col + 1, fpd->num_cols - 1);
+    for (size_t row=min_row;row<=max_row;++row) {
+        for (size_t col=min_col;col<=max_col;++col) {
+            const size_t index = row * fpd->num_cols + col;
+            const Pt * ptr = fpd->grid[index];
+            if (NULL == ptr) {
+                continue;
+            }
+            float d_sq = dist_sq(*ptr, p);
+            if (d_sq < min_dist_sq) {
+                /* found a point that it is too close to */
+                return 0;
+            }
+        }
+    }
+    /* no point was too close */
+    return 1;
+}</code></pre></div></details>
+                <div class="threecolumns">
+                  <figure>
+                    <img src="step2.3.svg" alt="Distance testing candidate points."/>
+                  <figcaption>Distance testing candidate points.</figcaption>
+                  </figure></div></li>
+              <li>If it is, try another one, up to <code>max_tries</code>.</li>
+              <li>If it is in the region and far enough from previous samples, <code>fpd_insert</code> it!
+                <details><summary>code</summary><div class="tabs">
+            <input type="radio" id="step-two-five-c" name="tab-group-step-two-five" checked>
+            <label for="step-two-five-c">C</label>
+          <pre><code class="language-c">static int fpd_step(FpdState *fpd) {
+    ...
+    while (tries++ < fpd->max_tries) {
+        ...
+        if ((0.f <= candidate.x) &&
+            (candidate.x <= fpd->width) && 
+            (0.f <= candidate.y) &&
+            (candidate.y <= fpd->height) &&
+            fpd_distance_check(fpd, candidate)
+        ) {
+            return fpd_insert(fpd, candidate);
+        }
+    ...</code></pre></div></details>
+                <div class="threecolumns">
+                  <figure>
+                    <img src="step2.5.svg" alt="Inserting a new point after distance tests."/>
+                  <figcaption>Inserting a new point after distance tests.</figcaption>
+                  </figure></div></li>
+              <li>If there were <code>max_tries</code> attempts and none worked, remove the chosen point from the active list.
+                <details><summary>code</summary><div class="tabs">
+            <input type="radio" id="step-two-six-c" name="tab-group-step-two-six" checked>
+            <label for="step-two-six-c">C</label>
+          <pre><code class="language-c">static int fpd_step(FpdState *fpd) {
+    ...
+    while (tries++ < fpd->max_tries) {
+        ...
+    }
+
+    /* retry limit exceeded, remove from active list */
+    fpd->list_len--;
+
+    return 1;
+}
+</code></pre></div></details>
+                <div class="threecolumns">
+                  <figure>
+                    <img src="step2.6.svg" alt="Removing points after failed attempts."/>
+                  <figcaption>Removing points after failed attempts.</figcaption>
+                  </figure></div></li>
+            </ol>
+          Once the buffer is full or there are no more active points, release memory and report the final count.</p>
+          <details><summary>code</summary><div class="tabs">
+            <input type="radio" id="step-two-c" name="tab-group-step-two" checked>
+            <label for="step-two-c">C</label>
+          <pre><code class="language-c">/* nonzero if algorithm is over or buffer is full */
+static int fpd_done(const FpdState *fpd) {
+    return (fpd->count >= fpd->max_points) || (fpd->list_len == 0);
+}
+
+int fast_poisson_disk(...) {
+    ...    
+    /* keep placing more points until we can't */
+    while (!fpd_done(&fpd)) {
+        if (!fpd_step(&fpd)) {
+            fpd_cleanup(&fpd);
+            return 0;
+        }
+        *out_num_points = fpd.count;
+    }
+
+    *out_num_points = fpd.count;
+    fpd_cleanup(&fpd);
+    return 1;
+}
+
+/* free resources allocated by the FpdState. But not the FpdState itself. That's on the stack. */
+static int fpd_cleanup(FpdState *fpd) {
+    if (NULL == fpd) {
+        return 0;
+    }
+    if (NULL != fpd->grid) {
+        free(fpd->grid);
+        fpd->grid = NULL;
+    }
+    if (NULL != fpd->active_list) {
+        free(fpd->active_list);
+        fpd->active_list = NULL;
+    }
+    return 1;
+}</code></pre></div></details>
+                <div class="threecolumns">
+                  <figure>
+                    <img src="fpd_process.svg" alt="Animation of the full fast Poisson disk process."/>
+                    <figcaption>Animation of the full fast Poisson disk process.</figcaption>
+                  </figure></div>
           <h3>TODO</h3>
           <ul>
-            <li>ToC and heading anchors</li>
             <li>Clearly state the problem at the start</li>
             <li>Is the DFT tangent helpful at all?</li>
-            <li>The words forest and tree are in there too much</li>
             <li>work in keywords like "procedural generation" "stochastic process" and idk what else</li>
-            <li>add a bio</li>
-            <li>make explicit that it is a simplified explanation for educational purposes</li>
+            <li>add a super brief bio?</li>
+            <li>make explicit that it is overexplained for educational purposes</li>
             <li>link to papers and other articles related to it</li>
+            <li>link to source code</li>
+            <li>should I cover Halton sequences?</li>
           </ul>
-          TODO: code snippet of function signature and image of the empty square
-  ## Setting Up the Data Structures
-
-  TODO: write this section
-
-  TODO: code snippet of creating the grid, the active list, choosing the cell size, the point struct, and list of all points, and alongside that an image drawing the grid
-  ## Initial point
-
-  TODO: write this section
-
-  TODO: code snippet for generating the point and updating the data structures, show the point in a grid space now
-
-  ## The Loop
-
-  TODO: write this section
-
-  TODO: show the code
-
-  TODO: images with legend to demonstrate the various steps and mark and explain which ones are active. Draw the discs
-
-  ## Wrap up
-
-  TODO: link to the github
-  TODO: images with different settings
-  TODO: link to github
-  TODO: cover Halton sequences
         </section>
         <section class="references">
           <h2>References</h2>

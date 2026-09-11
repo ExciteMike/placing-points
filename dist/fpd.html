@@ -201,6 +201,15 @@
             <ol>
                 <li><a href="#motivation">Motivation</a></li>
                 <li><a href="#colors-of-noise">Colors of Noise</a></li>
+                <li><a href="#fast-poisson-disk-sampling">Fast Poisson Disk Sampling</a>
+                    <ol>
+                      <li><a href="#fpd-overview">Overview</a></li>
+                      <li><a href="#inputs-to-the-algorithm">Inputs to the Algorithm</a></li>
+                      <li><a href="#step-zero-initialization">Step 0. Initialization</a></li>
+                      <li><a href="#step-one-first-sample">Step 1. First Sample</a></li>
+                      <li><a href="#step-two-choose-another">Step 2. Choose Another Sample</a></li>
+                    </ol>
+                </li>
                 <li><a href="#possible-approaches">Possible Approaches</a>
                     <ol>
                       <li><a href="#jittered-grid">Jittered Grid</a></li>
@@ -209,19 +218,11 @@
                       <li><a href="#more-exotic-approaches">More Exotic Approaches</a></li>
                     </ol>
                 </li>
-                <li><a href="#fast-poisson-disk-sampling">Fast Poisson Disk Sampling</a>
-                    <ol>
-                      <li><a href="#inputs-to-the-algorithm">Inputs to the Algorithm</a></li>
-                      <li><a href="#step-zero-initialization">Step 0. Initialization</a></li>
-                      <li><a href="#step-one-first-sample">Step 1. First Sample</a></li>
-                      <li><a href="#step-two-choose-another">Step 2. Choose Another Sample</a></li>
-                    </ol>
-                </li>
             </ol>
         </div>
         <section>
             <h2><a id="motivation"></a>Motivation</h2>
-            <p>In videogames and computer graphics, we often want to distribute things throughout a region. Things like placing trees in a virtual forest or a raytracer casting out rays to determine pixel color. Depending on how you approach it, there are a couple of pitfalls you could fall into! A regular grid looks artificial and its periodicity and <dfn title="non-uniformity in different directions">anisotropy</dfn> can lead to undesirable <a href="https://en.wikipedia.org/wiki/Aliasing">aliasing</a> and <a href="https://en.wikipedia.org/wiki/Moir%C3%A9_pattern">Moiré patterns</a> efffects. Using independent random numbers will produce clustering or graininess because some regions will be dense and others sparse.</p>
+            <p>In videogames and computer graphics, we often want to distribute points throughout a region in a way that is evenly spaced, yet not grid-like. It comes up when we are procedurally generating a forest or field of grass. When generating procedural textures, we need to choose particular points as the basis of effects like Voronoi regions. When rendering, we need to choose sample points for supersampling to avoid the <dfn title="the visual artifact of lines getting &quot;stair-step&quot; effect due to aliasing">jaggies</dfn>. Depending on how you approach it, there are a couple of pitfalls you could fall into! A regular grid looks artificial and its periodicity and <dfn title="non-uniformity in different directions">anisotropy</dfn> can lead to undesirable <a href="https://en.wikipedia.org/wiki/Aliasing">aliasing</a> and <a href="https://en.wikipedia.org/wiki/Moir%C3%A9_pattern">Moiré patterns</a> effects. Using independent random numbers will produce clustering or graininess because some regions will be dense and others sparse.</p>
             <p>What we need is a balance between that clumpy chaos of pure randomness and the unnatural order of grids. The points should look evenly spaced when viewed at large scales, while still not falling into an obvious pattern at small scales. Distributions meeting those criteria are sometimes called "blue noise."</p>
             <div class="threecolumns">
               <figure>
@@ -240,7 +241,7 @@
         </section>
         <section>
           <h2><a id="colors-of-noise"></a>Colors of Noise</h2>
-          <p>The concept of colors of noise comes signal processing in audio engineering, electronic, and other fields. The name is an analogy with visible light: a way to characterize the data according to how much of its "power" is at different frequencies. In audio, we experience this as pitch and timbre; in light, we perceive it as color.</p>
+          <p>The concept of colors of noise comes from signal processing in audio engineering, electronic, and other fields. The name is an analogy with visible light: a way to characterize the data according to how much of its "power" is at different frequencies. In audio, we experience this as pitch and timbre; in light, we perceive it as color.</p>
           <p>White noise is probably the most familiar "color of noise". It is so named because, like white light, no particular range of frequencies dominates. Red is at the low end of visible light frequencies, so when noise favors lower frequencies, we call it red noise (or Brownian noise, but that one is named after Robert Brown, not the color). Likewise when the higher frequencies of light dominate, we call it blue noise in reference to higher-frequency light appearing bluer to us.</p>
           <p>In the case of a procedurally generated forest, we want a relatively even density of trees, with no large areas of the forest looking much different compared to another large area. That means we want lower power at low frequencies. And at the same time, we want to prevent trees from occurring too close together. That tells us that we want higher power at higher frequencies. Blue noise!</p>
           <div class="threecolumns">
@@ -261,66 +262,24 @@
           <p>It does make sense, though, if you want to follow the math! While a set of points is not the sort of thing one does frequency analysis with, we can construct from it a measure of how likely it is to find another point at a given distance from another. We can then find the power spectrum of that. If we chose our points well, this should look roughly like a blue noise power spectrum.</p>
         </section>
         <section>
-          <h2><a id="possible-approaches"></a>Possible Approaches</h2>
-          <p>The approach I am going to go into most detail about here and the one I would most often recommend is referred to as Fast Poisson Disk Sampling, from the title of a <cite><a href="./bridson-siggraph07-poissondisk.pdf">SIGGRAPH paper by Robert Bridson</a></cite>. I'll mention a few others first, though, because they are interesting in their own right.</p>
-
-          <h3><a id="jittered-grid"></a>Jittered Grid</h3>
-          <p>In a way, a regular grid is actually pretty close to what we want. The points are very evenly spaced; the problem is that they are <em>too</em> evenly spaced. What if we took the points on that grid and randomly pushed them around a bit? That's the jittered grid technique. In my experiments with it, while it certainly improves on both pure white noise and on a regular grid, it has significantly more problems with clustering and <dfn title="non-uniformity in different directions">anisotropy</dfn> compared to the other approaches I discuss here. It is very fast, though, and may be close enough for many use cases!</p>
-          <div class="threecolumns">
-            <figure>
-              <img src="jittered_grid_square.svg" alt="Animation illustrating jittered grid points."/>
-              <figcaption>Animation illustrating jittered grid points.</figcaption>
-            </figure>
-            <figure>
-              <img src="jittered_grid_staggered.svg" alt="Animation illustrating jittered grid points starting from a staggered grid."/>
-              <figcaption>Animation illustrating jittered grid points starting from a staggered grid.</figcaption>
-            </figure>
-          </div>
-
-          <h3><a id="dart-throwing"></a>Dart Throwing</h3>
-          <p>We can just "throw darts" at the region and use those points. By which I mean that for each coordinate of a point, we just take a uniform random variable scaled to match the size of the region. This generates a white-noise point distribution with the clumping and gapping problems as seen at the top of this article. But if during that process we reject darts that land within some radius of other darts, the revised process gives us much better results. The cost is that we potentially need to throw very many more darts to find valid ones as density increases.</p>
-          <p></p>
-          <div class="threecolumns">
-            <figure>
-              <img src="dart_throwing.svg" alt="Dart throwing animation"/>
-              <figcaption>Animation illustrating a dart throwing approach.</figcaption>
-            </figure>
-          </div>
-
-          <h3><a id="mitchells-best-candidate"></a>Mitchell's Best Candidate</h3>
-          <p>The Mitchell's Best Candidate algorithm is a variation of dart throwing. Instead of throwing darts one at a time and rejecting them, we throw in batches and keep only the best dart of each batch. "Best" in this case means the candidate whose distance from its nearest previously accepted points is greatest. This can become quite slow as the number of accepted points grows, but it does produce good results.</p>
-          <div class="threecolumns">
-            <figure>
-              <img src="mitchells_best.svg" alt="Animation illustrating Mitchell's Best Candidate."/>
-              <figcaption>Animation illustrating Mitchell's Best Candidate.</figcaption>
-            </figure>
-          </div>
-
-          <h3><a id="more-exotic-approaches"></a>More Exotic Approaches</h3>
-          <p>People have come up with many ways to do this with various advantages and disadvantages. Tile-based methods make a library of smaller distributions of blue noise and then combine them to fill larger regions. An <dfn title="An aperiodic tiling can cover the whole surface without ever perfectly repeating">aperiodic tiling</dfn> can be used as the basis for the points. Points generated by other methods can be <dfn title="iteratively adjusted to spread them out more evenly">relaxed</dfn> to produce a smoother distribution. I'm sure there are more that I didn't think of!</p>
-          <div class="threecolumns">
-            <figure>
-              <img src="tile_based.svg" alt="A simplistic tile-based approach."/>
-              <figcaption>A simplistic tile-based approach.</figcaption>
-            </figure>
-            <figure>
-              <img src="aperiodic.svg" alt="A distribution based on an aperiodic tiling."/>
-              <figcaption>A distribution based on an aperiodic tiling. (<a href="https://cs.uwaterloo.ca/~csk/spectre/">Spectre</a>)</figcaption>
-            </figure>
-            <figure>
-              <img src="relaxation.svg" alt="Animation of using Lloyd's algorithm to relax an uneven distribution."/>
-              <figcaption>Using <a href="https://en.wikipedia.org/wiki/Lloyd%27s_algorithm">Lloyd's algorithm</a> to relax an uneven distribution.</figcaption>
-            </figure>
-          </div>
-        </section>
-        <section>
           <h2><a id="fast-poisson-disk-sampling"></a>Fast Poisson Disk Sampling</h2>
-          <p>The fast Poisson disk method from <cite><a href="./bridson-siggraph07-poissondisk.pdf">Bridson's paper</a></cite> seems to have become the most common approach. The "Poisson disk" part is from the name of the blue-noise-like distributions with a hard minimum distance between points. The "fast" part comes from a couple of clever tricks it uses to operate in linear time (in the number of points generated) and still produce high-quality results.</p>
-          <p>The process starts from one randomly chosen seed point. Future points are then generated by testing candidate points chosen from an <dfn title="an annulus is the doughnut-shaped region bounded by two concentric circles">annulus</dfn> around previously accepted points. It continues until the region gets too crowded to find more.</p>
-          <p>There are two tricks to make this process fast. The region is divided into a grid that allows the distance testing to consider only very few points. It also tracks a list of &quot;active&quot; points that can still serve as the basis for future candidates, and removes points from that list if after a fixed number of attempts to generate a new point based on it fails to generate a new valid point.</p>
-          <p>Bridson's algorithm works in any number of dimensions, but for simplicity I present it here in only two.</p>
+          <h3><a id="fpd-overview"></a>Overview</h3>
+          <p>The fast Poisson disk method from a <cite><a href="./bridson-siggraph07-poissondisk.pdf">paper by Robert Bridson</a></cite> seems to have become the most common approach. The "Poisson disk" part of the name refers to distributions with a hard minimum distance between points, meeting our "no clumping" criterion. This is distinct from a "Poisson distribution", which is confusingly also named after Siméon Denis Poisson but is actually like white noise. The "fast" part comes from a few clever tricks it uses to operate in linear time (in the number of points generated) and still produce high-quality results: a spatial grid, an active list, and selecting points uniformly.</p>
+          <p>The process goes like this:<ol>
+            <li>Randomly chose a seed point to start from, adding it to the grid and active list.</li>
+            <li>Choose a test candidate from an <dfn title="an annulus is the doughnut-shaped region bounded by two concentric circles">annulus</dfn> around an active point.</li>
+            <li>Using the grid to narrow down the search, find the accepted point nearest the candidate.</li>
+            <li>If it is at least the minimum distance away, accept that new point, adding it to the grid and active list.</li>
+            <li>If it is nearer than the minimum distance, then go back to choosing a test candidate from the annulus. Up to limit on the number of attempts.</li>
+            <li>If the lmited number of attempts is exceeded, remove that point from the active list.</li>
+            <li>If we haven't yet produced enough points and there are still any active points, choose a new active point to center the annulus on and go back choose a candidate from the annulus.</li>
+            <li>If we have generated the target number of points or there are no more active points, we are done.</li>
+          </ol></p>
+          <p>The grid speeds up our distance testing. We can just divide each the x and y coordinates by the cell size to get a column and row. We can choose a cell size that leaves room for at most one point in a cell: the minimum distance between points divided by the number of dimensions. Any accepted point that is within the minimum distance of the candidate would then have to be in a grid cell within 2 grid cells of the one the candidate would go into, and each grid cell can have at most one accepted point, so we have a constant upper bound on the number of points to test per candidate.</p>
+          <p>The active list and annuli centered on those points guide the choice of candidates to limited regions that are likely to be acceptable. This makes each guess more likely to succeed, reducing the number of guesses and therefore the number of distance checks that is required for selecting candidates. The limited number of attempts enforces an upper bound on the number of candidates per point, too.</p>
+          <p>My implementation of this algorithm is described in detail below. Bridson's algorithm works in any number of dimensions, but for simplicity I present it here in only two.</p>
           <h3><a id="data-structures"></a>Data Structures</h3>
-          <p>The <code>Pt</code> type is just two floats.</p>
+          <p>The <code>Pt</code> type is just two floats, <code>x</code> and <code>y</code>, for a point's coordinates.</p>
           <details><summary>code</summary><div class="tabs">
             <input type="radio" id="pt" name="tab-group-pt" checked>
             <label for="pt">C</label>
@@ -377,10 +336,6 @@ typedef struct FpdState {
               <tr>
                 <td><code>width</code>, <code>height</code></td>
                 <td>The size of the region.</td>
-              </tr>
-              <tr>
-                <td><code>min_dist</code></td>
-                <td>The minimum allowed distance between points.</td>
               </tr>
               <tr>
                 <td><code>min_dist</code></td>
@@ -478,7 +433,7 @@ typedef struct FpdState {
               <figcaption>An initial point.</figcaption>
             </figure>
           </div>
-          <p>The first step is to insert one seed point from which the rest of them will eventualy be generated. There's no special reason for it to be in any particular place, so this code just chooses it uniformly in the available region. A couple of suppporting functions appear in this snippet as well: the <code>fpd_randrange</code> function chooses a value uniformly in the provided range and <code>fpd_insert</code> updates bookkeeping for a newly accepted point.</p>
+          <p>The first step is to insert one seed point from which the rest of them will eventually be generated. There's no special reason for it to be in any particular place, so this code just chooses it uniformly in the available region. A couple of supporting functions appear in this snippet as well: the <code>fpd_randrange</code> function chooses a value uniformly in the provided range and <code>fpd_insert</code> updates bookkeeping for a newly accepted point.</p>
           <details><summary>code</summary><div class="tabs">
             <input type="radio" id="first-sample-c" name="tab-group-first-sample" checked>
             <label for="first-sample-c">C</label>
@@ -547,7 +502,22 @@ static int fpd_insert(FpdState *fpd, Pt p) {
     size_t tries = 0;
     while (tries++ < fpd->max_tries) {
         Pt candidate = fpd_random_from_annulus(cur, fpd->min_dist_sq);
-    ...</code></pre></div></details>
+    ...
+
+/* Given a point `p` and the square of the minimum radius, 
+   uniformly select a random point in an annulus
+   centered on `p`, with an inner radius equal to the 
+   minimum radius and an outer radius twice the minimum radius. */
+static Pt fpd_random_from_annulus(const Pt p, const float min_r_sq) {
+    float TAU = 2.f * 3.14159265358979323846;
+    float a = fpd_randrange(0, TAU);
+    float r_sq = fpd_randrange(min_r_sq, 4.f * min_r_sq);
+    float r = sqrtf(r_sq);
+    return (Pt) {
+        p.x + r * cosf(a),
+        p.y + r * sinf(a)
+    };
+}</code></pre></div></details>
                 <div class="threecolumns">
                   <figure>
                     <img src="step2.2.svg" alt="Generating a new point from an active point."/>
@@ -681,14 +651,69 @@ static int fpd_cleanup(FpdState *fpd) {
           <h3>TODO</h3>
           <ul>
             <li>Clearly state the problem at the start</li>
-            <li>Is the DFT tangent helpful at all?</li>
+            <li>the colors of noise section is too long and not actually useful</li>
+            <li>the other approaches were a fun and interesting excuse for more animations, but the section is too long and not actually useful</li>
             <li>work in keywords like "procedural generation" "stochastic process" and idk what else</li>
+            <li>more transitional phrases like "now that we have gnerated X, we do Y"?</li>
             <li>add a super brief bio?</li>
             <li>make explicit that it is overexplained for educational purposes</li>
             <li>link to papers and other articles related to it</li>
             <li>link to source code</li>
             <li>should I cover Halton sequences?</li>
           </ul>
+        </section>
+        <section>
+          <h2><a id="possible-approaches"></a>Possible Approaches</h2>
+          <p>The approach I am going to go into most detail about here and the one I would most often recommend is referred to as Fast Poisson Disk Sampling, from the title of a <cite><a href="./bridson-siggraph07-poissondisk.pdf">SIGGRAPH paper by Robert Bridson</a></cite>. I'll mention a few others first, though, because they are interesting in their own right.</p>
+
+          <h3><a id="jittered-grid"></a>Jittered Grid</h3>
+          <p>In a way, a regular grid is actually pretty close to what we want. The points are very evenly spaced; the problem is that they are <em>too</em> evenly spaced. What if we took the points on that grid and randomly pushed them around a bit? That's the jittered grid technique. In my experiments with it, while it certainly improves on both pure white noise and on a regular grid, it has significantly more problems with clustering and <dfn title="non-uniformity in different directions">anisotropy</dfn> compared to the other approaches I discuss here. It is very fast, though, and may be close enough for many use cases!</p>
+          <div class="threecolumns">
+            <figure>
+              <img src="jittered_grid_square.svg" alt="Animation illustrating jittered grid points."/>
+              <figcaption>Animation illustrating jittered grid points.</figcaption>
+            </figure>
+            <figure>
+              <img src="jittered_grid_staggered.svg" alt="Animation illustrating jittered grid points starting from a staggered grid."/>
+              <figcaption>Animation illustrating jittered grid points starting from a staggered grid.</figcaption>
+            </figure>
+          </div>
+
+          <h3><a id="dart-throwing"></a>Dart Throwing</h3>
+          <p>We can just "throw darts" at the region and use those points. By which I mean that for each coordinate of a point, we just take a uniform random variable scaled to match the size of the region. This generates a white-noise point distribution with the clumping and gapping problems as seen at the top of this article. But if during that process we reject darts that land within some radius of other darts, the revised process gives us much better results. The cost is that we potentially need to throw very many more darts to find valid ones as density increases.</p>
+          <p></p>
+          <div class="threecolumns">
+            <figure>
+              <img src="dart_throwing.svg" alt="Dart throwing animation"/>
+              <figcaption>Animation illustrating a dart throwing approach.</figcaption>
+            </figure>
+          </div>
+
+          <h3><a id="mitchells-best-candidate"></a>Mitchell's Best Candidate</h3>
+          <p>The Mitchell's Best Candidate algorithm is a variation of dart throwing. Instead of throwing darts one at a time and rejecting them, we throw in batches and keep only the best dart of each batch. "Best" in this case means the candidate whose distance from its nearest previously accepted points is greatest. This can become quite slow as the number of accepted points grows, but it does produce good results.</p>
+          <div class="threecolumns">
+            <figure>
+              <img src="mitchells_best.svg" alt="Animation illustrating Mitchell's Best Candidate."/>
+              <figcaption>Animation illustrating Mitchell's Best Candidate.</figcaption>
+            </figure>
+          </div>
+
+          <h3><a id="more-exotic-approaches"></a>More Exotic Approaches</h3>
+          <p>People have come up with many ways to do this with various advantages and disadvantages. Tile-based methods make a library of smaller distributions of blue noise and then combine them to fill larger regions. An <dfn title="An aperiodic tiling can cover the whole surface without ever perfectly repeating">aperiodic tiling</dfn> can be used as the basis for the points. Points generated by other methods can be <dfn title="iteratively adjusted to spread them out more evenly">relaxed</dfn> to produce a smoother distribution. I'm sure there are more that I didn't think of!</p>
+          <div class="threecolumns">
+            <figure>
+              <img src="tile_based.svg" alt="A simplistic tile-based approach."/>
+              <figcaption>A simplistic tile-based approach.</figcaption>
+            </figure>
+            <figure>
+              <img src="aperiodic.svg" alt="A distribution based on an aperiodic tiling."/>
+              <figcaption>A distribution based on an aperiodic tiling. (<a href="https://cs.uwaterloo.ca/~csk/spectre/">Spectre</a>)</figcaption>
+            </figure>
+            <figure>
+              <img src="relaxation.svg" alt="Animation of using Lloyd's algorithm to relax an uneven distribution."/>
+              <figcaption>Using <a href="https://en.wikipedia.org/wiki/Lloyd%27s_algorithm">Lloyd's algorithm</a> to relax an uneven distribution.</figcaption>
+            </figure>
+          </div>
         </section>
         <section class="references">
           <h2>References</h2>

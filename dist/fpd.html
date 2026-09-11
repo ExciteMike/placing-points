@@ -192,7 +192,7 @@
     <main>
       <article>
         <header>
-            <h1>Placing Points: Fast Poisson Disk</h1>
+            <h1>[DRAFT]Placing Points: Fast Poisson Disk</h1>
             <div class="byline">By <a href="https://excitemike.com"> Mike Meyer</a></div>
             <div class="dateline">2026-09-INSERT DATE</div>
         </header>
@@ -222,8 +222,15 @@
         </div>
         <section>
             <h2><a id="motivation"></a>Motivation</h2>
-            <p>In videogames and computer graphics, we often want to distribute points throughout a region in a way that is evenly spaced, yet not grid-like. It comes up when we are procedurally generating a forest or field of grass. When generating procedural textures, we need to choose particular points as the basis of effects like Voronoi regions. When rendering, we need to choose sample points for supersampling to avoid the <dfn title="the visual artifact of lines getting &quot;stair-step&quot; effect due to aliasing">jaggies</dfn>. Depending on how you approach it, there are a couple of pitfalls you could fall into! A regular grid looks artificial and its periodicity and <dfn title="non-uniformity in different directions">anisotropy</dfn> can lead to undesirable <a href="https://en.wikipedia.org/wiki/Aliasing">aliasing</a> and <a href="https://en.wikipedia.org/wiki/Moir%C3%A9_pattern">Moiré patterns</a> effects. Using independent random numbers will produce clustering or graininess because some regions will be dense and others sparse.</p>
-            <p>What we need is a balance between that clumpy chaos of pure randomness and the unnatural order of grids. The points should look evenly spaced when viewed at large scales, while still not falling into an obvious pattern at small scales. Distributions meeting those criteria are sometimes called "blue noise."</p>
+            <p>In videogames and computer graphics, we often want to distribute points throughout a region. For instance, even if most of
+              your game is not procedurally generated, you still don't want to place every blade of grass by hand. 
+              Depending on how you approach it, there are a couple of pitfalls you could fall into! A regular grid looks overly artificial, 
+              looks very different at different viewing angles, and can cause undesirable interference patterns 
+              (<a href="https://en.wikipedia.org/wiki/Moir%C3%A9_pattern">Moiré patterns</a>). Using independent random numbers leads to 
+              clustering with some regions will be dense and others sparse.</p>
+            <p>What we'd prefer is a balance between that clumpy chaos of pure randomness and the unnatural order of grids. The points 
+              should look evenly spaced when viewed at large scales, while still not falling into an obvious pattern at small scales. 
+              Distributions meeting those criteria are sometimes called "blue noise."</p>
             <div class="threecolumns">
               <figure>
                 <img src="intro_grid.svg" alt="250 Points distributed on a uniform grid"/>
@@ -241,9 +248,18 @@
         </section>
         <section>
           <h2><a id="colors-of-noise"></a>Colors of Noise</h2>
-          <p>The concept of colors of noise comes from signal processing in audio engineering, electronic, and other fields. The name is an analogy with visible light: a way to characterize the data according to how much of its "power" is at different frequencies. In audio, we experience this as pitch and timbre; in light, we perceive it as color.</p>
-          <p>White noise is probably the most familiar "color of noise". It is so named because, like white light, no particular range of frequencies dominates. Red is at the low end of visible light frequencies, so when noise favors lower frequencies, we call it red noise (or Brownian noise, but that one is named after Robert Brown, not the color). Likewise when the higher frequencies of light dominate, we call it blue noise in reference to higher-frequency light appearing bluer to us.</p>
-          <p>In the case of a procedurally generated forest, we want a relatively even density of trees, with no large areas of the forest looking much different compared to another large area. That means we want lower power at low frequencies. And at the same time, we want to prevent trees from occurring too close together. That tells us that we want higher power at higher frequencies. Blue noise!</p>
+          <p>The concept of colors of noise comes from signal processing in audio engineering, electronics, and other fields.
+            The name is an analogy with visible light: a way to characterize the data according to how much of its "power" is at different frequencies.
+            In audio, we experience this as pitch and timbre; in light, we perceive it as color.</p>
+          <p>White noise is probably the most familiar "color of noise". It is so named because, like white light, no particular frequencies dominate.
+            Red is at the low end of visible light frequencies, so when noise favors lower frequencies, we call it red noise (or Brownian noise, but that 
+            is named after Robert Brown, not the color). Likewise when the higher frequencies of light dominate, we call it blue noise in reference to 
+            higher-frequency light appearing bluer to our eyes.</p>
+          <p>In engineering and the sciences, it is often fruitful to analyze a signal in terms of its frequencies (Fourier analysis). You've probably seen a music player visualization where you've
+            watched the bars on the left end bounce with the bass notes and the right end with the high notes. Those are using Fourier analysis to plot a power spectrum!
+            We can do that will all kinds of signal, including the point set. Colors of noise are defined in terms of the shape of that power spectrum.</p>
+          <p>In the case of, say, a procedurally generated forest, we want a relatively even density of trees, with no large areas of the forest looking 
+            much different compared to another large area. That means we want lower power at low frequencies. And at the same time, we want to prevent trees from occurring too close together. That tells us that we want higher power at higher frequencies. Blue noise!</p>
           <div class="threecolumns">
             <figure>
               <img src="colors_of_noise_white.svg" alt="White noise (top) and its flat power spectrum (bottom)"/>
@@ -258,8 +274,14 @@
               <figcaption>Red noise AKA Brownian noise (top) and its power spectrum (bottom), which favors lower frequencies.</figcaption>
             </figure>
           </div>
-          <p>It might seem odd to think of frequencies and power spectra when we are trying to plant some virtual trees. And it probably should! These concepts are usually about how a value varies over time, not a set of discrete points. It would be reasonable to think of the name "blue noise" as metaphorical.</p>
-          <p>It does make sense, though, if you want to follow the math! While a set of points is not the sort of thing one does frequency analysis with, we can construct from it a measure of how likely it is to find another point at a given distance from another. We can then find the power spectrum of that. If we chose our points well, this should look roughly like a blue noise power spectrum.</p>
+          <p>It might seem odd to think of frequencies and power spectra when we are trying to plant some virtual trees. And it probably should!
+            These concepts are usually about how a value varies over time, not a set of discrete points.
+            It would be reasonable to think of the name "blue noise" as metaphorical.</p>
+          <p>It does make sense, though, if you want to follow the math!
+            If we consider the point set a signal (a value of 1 for each pixel that contains a and zero elsewhere),
+            we can take the Fourier transform of that, then take the absolute value and square it, and that gives us 2d (or higher dimension) power spectrum.
+            We can then average the value in concentric annuli(or higher dimensional analogue) (the radial average) to convert to a 1 dimensional power spectrum.
+            If we chose our points well, this should look roughly like a blue noise power spectrum.</p>
         </section>
         <section>
           <h2><a id="fast-poisson-disk-sampling"></a>Fast Poisson Disk Sampling</h2>

@@ -201,6 +201,14 @@
             <ol>
                 <li><a href="#motivation">Motivation</a></li>
                 <li><a href="#colors-of-noise">Colors of Noise</a></li>
+                <li><a href="#possible-approaches">Possible Approaches</a>
+                    <ol>
+                      <li><a href="#jittered-grid">Jittered Grid</a></li>
+                      <li><a href="#dart-throwing">Dart Throwing</a></li>
+                      <li><a href="#mitchells-best-candidate">Mitchell's Best Candidate</a></li>
+                      <li><a href="#more-exotic-approaches">More Exotic Approaches</a></li>
+                    </ol>
+                </li>
                 <li><a href="#fast-poisson-disk-sampling">Fast Poisson Disk Sampling</a>
                     <ol>
                       <li><a href="#fpd-overview">Overview</a></li>
@@ -210,23 +218,15 @@
                       <li><a href="#step-two-choose-another">Step 2. Choose Another Sample</a></li>
                     </ol>
                 </li>
-                <li><a href="#possible-approaches">Possible Approaches</a>
-                    <ol>
-                      <li><a href="#jittered-grid">Jittered Grid</a></li>
-                      <li><a href="#dart-throwing">Dart Throwing</a></li>
-                      <li><a href="#mitchells-best-candidate">Mitchell's Best Candidate</a></li>
-                      <li><a href="#more-exotic-approaches">More Exotic Approaches</a></li>
-                    </ol>
-                </li>
             </ol>
         </div>
         <section>
             <h2><a id="motivation"></a>Motivation</h2>
-            <p>In videogames and computer graphics, we often want to distribute points throughout a region. For instance, even if most of
-              your game is not procedurally generated, you still don't want to place every blade of grass by hand. 
+            <p>In videogames and computer graphics, we often want to distribute things throughout a region.
+              For instance, you don't want to place every tuft of grass in a field by hand. 
               Depending on how you approach it, there are a couple of pitfalls you could fall into! A regular grid looks overly artificial, 
               looks very different at different viewing angles, and can cause undesirable interference patterns 
-              (<a href="https://en.wikipedia.org/wiki/Moir%C3%A9_pattern">Moiré patterns</a>). Using independent random numbers leads to 
+              (<a href="https://en.wikipedia.org/wiki/Moir%C3%A9_pattern">Moiré patterns</a>). Using random numbers naively leads to 
               clustering with some regions will be dense and others sparse.</p>
             <p>What we'd prefer is a balance between that clumpy chaos of pure randomness and the unnatural order of grids. The points 
               should look evenly spaced when viewed at large scales, while still not falling into an obvious pattern at small scales. 
@@ -248,18 +248,16 @@
         </section>
         <section>
           <h2><a id="colors-of-noise"></a>Colors of Noise</h2>
-          <p>The concept of colors of noise comes from signal processing in audio engineering, electronics, and other fields.
+          <p>The colors of noise concept comes from signal processing in audio engineering, electronics, and other fields.
             The name is an analogy with visible light: a way to characterize the data according to how much of its "power" is at different frequencies.
             In audio, we experience this as pitch and timbre; in light, we perceive it as color.</p>
-          <p>White noise is probably the most familiar "color of noise". It is so named because, like white light, no particular frequencies dominate.
-            Red is at the low end of visible light frequencies, so when noise favors lower frequencies, we call it red noise (or Brownian noise, but that 
-            is named after Robert Brown, not the color). Likewise when the higher frequencies of light dominate, we call it blue noise in reference to 
-            higher-frequency light appearing bluer to our eyes.</p>
           <p>In engineering and the sciences, it is often fruitful to analyze a signal in terms of its frequencies (Fourier analysis). You've probably seen a music player visualization where you've
             watched the bars on the left end bounce with the bass notes and the right end with the high notes. Those are using Fourier analysis to plot a power spectrum!
-            We can do that will all kinds of signal, including the point set. Colors of noise are defined in terms of the shape of that power spectrum.</p>
+            We can do that will all kinds of signals, including a point set. Colors of noise are defined in terms of the shape of that power spectrum.</p>
+          <p>White noise is probably the most familiar "color of noise". It is so named because, like white light, it has a flat power spectrum. No particular frequencies dominate.
+            Red is at the low end of visible light frequencies, and blues and violets at the high end. So when higher frequencies dominate, we call it blue noise.</p>
           <p>In the case of, say, a procedurally generated forest, we want a relatively even density of trees, with no large areas of the forest looking 
-            much different compared to another large area. That means we want lower power at low frequencies. And at the same time, we want to prevent trees from occurring too close together. That tells us that we want higher power at higher frequencies. Blue noise!</p>
+            much different compared to another large area. That means we want low or even zero power at low frequencies. And at the same time, we want to prevent trees from occurring too close together. That tells us that we want higher power at higher frequencies. Blue noise!</p>
           <div class="threecolumns">
             <figure>
               <img src="colors_of_noise_white.svg" alt="White noise (top) and its flat power spectrum (bottom)"/>
@@ -271,17 +269,66 @@
             </figure>
             <figure>
               <img src="colors_of_noise_red.svg" alt="Red noise AKA Brownian noise (top) and its power spectrum (bottom) which favors lower frequencies"/>
-              <figcaption>Red noise AKA Brownian noise (top) and its power spectrum (bottom), which favors lower frequencies.</figcaption>
+              <figcaption>Red noise AKA Brownian noise (after Robert Brown, not the color) (top) and its power spectrum (bottom), which favors lower frequencies.</figcaption>
             </figure>
           </div>
           <p>It might seem odd to think of frequencies and power spectra when we are trying to plant some virtual trees. And it probably should!
             These concepts are usually about how a value varies over time, not a set of discrete points.
-            It would be reasonable to think of the name "blue noise" as metaphorical.</p>
-          <p>It does make sense, though, if you want to follow the math!
-            If we consider the point set a signal (a value of 1 for each pixel that contains a and zero elsewhere),
-            we can take the Fourier transform of that, then take the absolute value and square it, and that gives us 2d (or higher dimension) power spectrum.
-            We can then average the value in concentric annuli(or higher dimensional analogue) (the radial average) to convert to a 1 dimensional power spectrum.
-            If we chose our points well, this should look roughly like a blue noise power spectrum.</p>
+            It would be reasonable to think of the name "blue noise" as metaphorical.
+            There is a rigorous mathematics to it, though, and it is even possible to generate a point set based on a power spectrum, but I am not aware of a way that is suitable for real-time uses like a video game. So while colors of noise is a useful tool for analyzing a solution, we'll be approaching the problem from a different angle.</p>
+        </section>
+        <section>
+          <h2><a id="possible-approaches"></a>Possible Approaches</h2>
+          <p>The approach I am going to go into most detail about here and the one I would most often recommend is referred to as Fast Poisson Disk Sampling, from the title of a <cite><a href="./bridson-siggraph07-poissondisk.pdf">SIGGRAPH paper by Robert Bridson</a></cite>. I'll mention a few others first, though, because they are interesting in their own right.</p>
+          <h3><a id="jittered-grid"></a>Jittered Grid</h3>
+          <p>In a way, a regular grid is actually pretty close to what we want. The points are very evenly spaced; the problem is that they are <em>too</em> evenly spaced. What if we took the points on that grid and randomly pushed them around a bit? That's the jittered grid technique. In my experiments with it, while it certainly improves on both pure white noise and on a regular grid, it has more problems with clustering and anisotropy (non-uniformity in different directions) compared to the other approaches I discuss here. It is very fast, though, and may be close enough for many use cases!</p>
+          <div class="threecolumns">
+            <figure>
+              <img src="jittered_grid_square.svg" alt="Animation illustrating jittered grid points."/>
+              <figcaption>Animation illustrating jittered grid points.</figcaption>
+            </figure>
+            <figure>
+              <img src="jittered_grid_staggered.svg" alt="Animation illustrating jittered grid points starting from a staggered grid."/>
+              <figcaption>Animation illustrating jittered grid points starting from a staggered grid.</figcaption>
+            </figure>
+          </div>
+
+          <h3><a id="dart-throwing"></a>Dart Throwing</h3>
+          <p>We can just "throw darts" at the region and use those points. By which I mean that for each coordinate of a point, we just take a uniform random variable scaled to match the size of the region. This generates a white-noise point distribution with the clumping and gapping problems as seen at the top of this article. But if during that process we reject darts that land within some radius of other darts, the revised process gives us much better results. The cost is that we potentially need to throw very many more darts to find valid ones as density increases.</p>
+          <p></p>
+          <div class="threecolumns">
+            <figure>
+              <img src="dart_throwing.svg" alt="Dart throwing animation"/>
+              <figcaption>Animation illustrating a dart throwing approach.</figcaption>
+            </figure>
+          </div>
+
+          <h3><a id="mitchells-best-candidate"></a>Mitchell's Best Candidate</h3>
+          <p>The Mitchell's Best Candidate algorithm is a variation of dart throwing. Instead of throwing darts one at a time and rejecting them, we throw in batches and keep only the best dart of each batch. "Best" in this case means the candidate whose distance from its nearest previously accepted point is greatest. This can become quite slow as the number of accepted points grows, but it does produce good results.</p>
+          <div class="threecolumns">
+            <figure>
+              <img src="mitchells_best.svg" alt="Animation illustrating Mitchell's Best Candidate."/>
+              <figcaption>Animation illustrating Mitchell's Best Candidate.</figcaption>
+            </figure>
+          </div>
+
+          <h3><a id="more-exotic-approaches"></a>More Exotic Approaches</h3>
+          <p>People have come up with many ways to do this with various advantages and disadvantages. Tile-based methods make a library of smaller distributions of blue noise and then combine them to fill larger regions. An <dfn title="An aperiodic tiling can cover the whole surface without ever perfectly repeating">aperiodic tiling</dfn> can be used as the basis for the points. Points generated by other methods can be <dfn title="iteratively adjusted to spread them out more evenly">relaxed</dfn> to produce a smoother distribution.
+          For grass on the game The Witness, Casey Muratori came up with an <a href="https://caseymuratori.com/blog_0011">approach based on intersecting sets of concentric circles</a>.</p>
+          <div class="threecolumns">
+            <figure>
+              <img src="tile_based.svg" alt="A simplistic tile-based approach."/>
+              <figcaption>A simplistic tile-based approach.</figcaption>
+            </figure>
+            <figure>
+              <img src="aperiodic.svg" alt="A distribution based on an aperiodic tiling."/>
+              <figcaption>A distribution based on an aperiodic tiling. (<a href="https://cs.uwaterloo.ca/~csk/spectre/">Spectre</a>)</figcaption>
+            </figure>
+            <figure>
+              <img src="relaxation.svg" alt="Animation of using Lloyd's algorithm to relax an uneven distribution."/>
+              <figcaption>Using <a href="https://en.wikipedia.org/wiki/Lloyd%27s_algorithm">Lloyd's algorithm</a> to relax an uneven distribution.</figcaption>
+            </figure>
+          </div>
         </section>
         <section>
           <h2><a id="fast-poisson-disk-sampling"></a>Fast Poisson Disk Sampling</h2>
@@ -682,63 +729,12 @@ static int fpd_cleanup(FpdState *fpd) {
             <li>should I cover Halton sequences?</li>
           </ul>
         </section>
-        <section>
-          <h2><a id="possible-approaches"></a>Possible Approaches</h2>
-          <p>The approach I am going to go into most detail about here and the one I would most often recommend is referred to as Fast Poisson Disk Sampling, from the title of a <cite><a href="./bridson-siggraph07-poissondisk.pdf">SIGGRAPH paper by Robert Bridson</a></cite>. I'll mention a few others first, though, because they are interesting in their own right.</p>
-
-          <h3><a id="jittered-grid"></a>Jittered Grid</h3>
-          <p>In a way, a regular grid is actually pretty close to what we want. The points are very evenly spaced; the problem is that they are <em>too</em> evenly spaced. What if we took the points on that grid and randomly pushed them around a bit? That's the jittered grid technique. In my experiments with it, while it certainly improves on both pure white noise and on a regular grid, it has significantly more problems with clustering and <dfn title="non-uniformity in different directions">anisotropy</dfn> compared to the other approaches I discuss here. It is very fast, though, and may be close enough for many use cases!</p>
-          <div class="threecolumns">
-            <figure>
-              <img src="jittered_grid_square.svg" alt="Animation illustrating jittered grid points."/>
-              <figcaption>Animation illustrating jittered grid points.</figcaption>
-            </figure>
-            <figure>
-              <img src="jittered_grid_staggered.svg" alt="Animation illustrating jittered grid points starting from a staggered grid."/>
-              <figcaption>Animation illustrating jittered grid points starting from a staggered grid.</figcaption>
-            </figure>
-          </div>
-
-          <h3><a id="dart-throwing"></a>Dart Throwing</h3>
-          <p>We can just "throw darts" at the region and use those points. By which I mean that for each coordinate of a point, we just take a uniform random variable scaled to match the size of the region. This generates a white-noise point distribution with the clumping and gapping problems as seen at the top of this article. But if during that process we reject darts that land within some radius of other darts, the revised process gives us much better results. The cost is that we potentially need to throw very many more darts to find valid ones as density increases.</p>
-          <p></p>
-          <div class="threecolumns">
-            <figure>
-              <img src="dart_throwing.svg" alt="Dart throwing animation"/>
-              <figcaption>Animation illustrating a dart throwing approach.</figcaption>
-            </figure>
-          </div>
-
-          <h3><a id="mitchells-best-candidate"></a>Mitchell's Best Candidate</h3>
-          <p>The Mitchell's Best Candidate algorithm is a variation of dart throwing. Instead of throwing darts one at a time and rejecting them, we throw in batches and keep only the best dart of each batch. "Best" in this case means the candidate whose distance from its nearest previously accepted points is greatest. This can become quite slow as the number of accepted points grows, but it does produce good results.</p>
-          <div class="threecolumns">
-            <figure>
-              <img src="mitchells_best.svg" alt="Animation illustrating Mitchell's Best Candidate."/>
-              <figcaption>Animation illustrating Mitchell's Best Candidate.</figcaption>
-            </figure>
-          </div>
-
-          <h3><a id="more-exotic-approaches"></a>More Exotic Approaches</h3>
-          <p>People have come up with many ways to do this with various advantages and disadvantages. Tile-based methods make a library of smaller distributions of blue noise and then combine them to fill larger regions. An <dfn title="An aperiodic tiling can cover the whole surface without ever perfectly repeating">aperiodic tiling</dfn> can be used as the basis for the points. Points generated by other methods can be <dfn title="iteratively adjusted to spread them out more evenly">relaxed</dfn> to produce a smoother distribution. I'm sure there are more that I didn't think of!</p>
-          <div class="threecolumns">
-            <figure>
-              <img src="tile_based.svg" alt="A simplistic tile-based approach."/>
-              <figcaption>A simplistic tile-based approach.</figcaption>
-            </figure>
-            <figure>
-              <img src="aperiodic.svg" alt="A distribution based on an aperiodic tiling."/>
-              <figcaption>A distribution based on an aperiodic tiling. (<a href="https://cs.uwaterloo.ca/~csk/spectre/">Spectre</a>)</figcaption>
-            </figure>
-            <figure>
-              <img src="relaxation.svg" alt="Animation of using Lloyd's algorithm to relax an uneven distribution."/>
-              <figcaption>Using <a href="https://en.wikipedia.org/wiki/Lloyd%27s_algorithm">Lloyd's algorithm</a> to relax an uneven distribution.</figcaption>
-            </figure>
-          </div>
-        </section>
         <section class="references">
           <h2>References</h2>
           <ol>
             <li><cite>Robert Bridson. 2007. Fast Poisson disk sampling in arbitrary dimensions. In ACM SIGGRAPH 2007 sketches (SIGGRAPH '07). Association for Computing Machinery, New York, NY, USA, 22–es. <a href="https://doi.org/10.1145/1278780.1278807">https://doi.org/10.1145/1278780.1278807</a></cite></li>
+            <li><cite>Yahan Zhou, Haibin Huang, Li-Yi Wei, and Rui Wang. 2012. Point sampling with general noise spectrum. ACM Trans. Graph. 31, 4, Article 76 (July 2012), 11 pages. <a href="https://doi.org/10.1145/2185520.2185572">https://doi.org/10.1145/2185520.2185572</a></cite></li>
+            <li>Several colors of noise are defined by <cite><a href="https://its.ntia.gov/research-topics/federal-standard-1037c/">"Federal Standard 1037C"</a>. Institute for Telecommunication Sciences. Institute for Telecommunication Sciences, National Telecommunications and Information Administration (ITS-NTIA).</cite></li>
           </ol>
         </section>
       </article>

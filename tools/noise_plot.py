@@ -68,6 +68,19 @@ def mine(x):
         [0, lambda x: 12*x - 2, 1, lambda x: 3 - 6*x, 0.5]
         )
 
+
+def gen_step_blue_noise():
+    # step blue noise has two levels in the power spectrum. zero at the low end and a flat value elsewhere
+    def step(x):
+        print(np.max(x))
+        print(np.mean(x))
+        x2 = np.zeros(x.shape)
+        mean = np.mean(x)
+        x2[x > mean] = 1
+        return x2
+    return gen_f(step, NUM_SAMPLES)
+
+
 def gen_power_law(exponent: float, n_samples: int):
     r"""generate noise whose power spectrum is proportional to 1 / (frequency^exponent).
     
@@ -175,9 +188,10 @@ def make_noise_graphs(path, samples, output_range_min=0.01, output_range_max=0.9
         f.write(f""" L {PLOT_RIGHT} {PLOT2_BOTTOM} z\" fill="blue" stroke="none"/>""")
         f.write("\n</svg>")
 
-make_noise_graphs("../dist/colors_of_noise_white.svg", gen_white_noise(), output_range_max=0.6)
-make_noise_graphs("../dist/colors_of_noise_blue.svg", gen_blue_noise())
-make_noise_graphs("../dist/colors_of_noise_red.svg", gen_brownian_noise())
-make_noise_graphs("../dist/colors_of_noise_pink.svg", gen_pink_noise())
-make_noise_graphs("../dist/colors_of_noise_violet.svg", gen_violet_noise())
-make_noise_graphs("../dist/colors_of_noise_mine.svg", gen_mine())
+make_noise_graphs("./dist/colors_of_noise_white.svg", gen_white_noise(), output_range_max=0.6)
+make_noise_graphs("./dist/colors_of_noise_blue.svg", gen_blue_noise())
+make_noise_graphs("./dist/colors_of_noise_step_blue.svg", gen_step_blue_noise())
+make_noise_graphs("./dist/colors_of_noise_red.svg", gen_brownian_noise())
+make_noise_graphs("./dist/colors_of_noise_pink.svg", gen_pink_noise())
+make_noise_graphs("./dist/colors_of_noise_violet.svg", gen_violet_noise())
+make_noise_graphs("./dist/colors_of_noise_mine.svg", gen_mine())

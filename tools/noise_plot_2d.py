@@ -12,7 +12,7 @@ POWER_SPECTRUM_OUT_PATH = "fpd_test_powerspectrum.svg"
 IMAGE_SIZE = 1024
 PLOT_WIDTH = 500
 PLOT_HEIGHT = 500
-NUM_BUCKETS = 256
+NUM_BUCKETS = 1024
 
 def gen_white_noise():
     # white noise has flat power spectrum density (which means beta = 0)
@@ -156,26 +156,116 @@ def power_spectrum_plot(path, samples):
         f.write("\n</svg>")
 
 
+SUBPLOT_MOSAIC= '''
+AADDD
+BCDDD
+'''
+
+def radial_power_to_figures(fname, title, radial_frequencies, radial_power, num_points):
+    r"""Given ndarrays of frequencies and an ndarray of their powers, 
+    generate some plots showing coming up with a point distribution 
+    demonstrating that radial power spectrum.
+    """
+    plt.clf()
+    fig = plt.figure(layout='constrained')
+    fig.suptitle(title)
+    fig.set_size_inches((18,12))
+    axes = fig.subplot_mosaic(SUBPLOT_MOSAIC)
+
+    # radial power plot
+    ax = axes['A']
+    ax.plot(radial_frequencies, radial_power)
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_title('Radial Power')
+
+    # 2d power spectrum
+    frequencies1d = np.fft.fftshift(np.fft.fftfreq(IMAGE_SIZE, d=1/IMAGE_SIZE))
+    freqsx, freqsy = np.meshgrid(frequencies1d, frequencies1d)
+    power = np.zeros((IMAGE_SIZE, IMAGE_SIZE))
+    for row in range(IMAGE_SIZE):
+        for col in range(IMAGE_SIZE):
+            freq = np.sqrt(freqsx[col, row]**2 + freqsy[col, row]**2)
+            search_index = np.searchsorted(radial_frequencies, freq)
+            idx = min(len(radial_frequencies)-1, search_index)
+            power[row, col] = radial_power[idx]
+    ax = axes['B']
+    #contour = ax.contourf(freqsx, freqsy, power)
+    ax.imshow(power, interpolation='nearest')
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_title('Power')
+    ax.set_aspect('equal')
+    #plt.colorbar(contour, ax=ax)
+
+    # image
+    rng = np.random.default_rng()
+    phase = 2.0 * np.pi * rng.uniform(size=power.shape)
+    magnitudes = np.sqrt(power)
+    imag_parts = np.multiply(magnitudes, np.sin(phase))
+    real_parts = np.multiply(magnitudes, np.cos(phase))
+    fft = real_parts + 1J * imag_parts
+    image = np.fft.ifft2(np.fft.ifftshift(fft))
+    image = np.real(image)
+    ax = axes['C']
+    ax.set_xticks([])
+    ax.set_yticks([])
+    ax.set_title('Inverse FFT\n(real part, randomized phase)', wrap=True)
+    #contour = ax.contourf(np.real(image))
+    ax.imshow(image, interpolation='nearest')
+    ax.set_aspect('equal')
+    #plt.colorbar(contour, ax=ax)
+
+    # image = np.real(image)
+    # ax = axes['c']
+    # contour = plt.contourf(image)
+    # ax.set_title('Inverse FFT (absolute value)')
+    # ax.set_aspect('equal')
+    # plt.colorbar(contour)
+
+    image_flat = image.ravel()
+    idx = np.argpartition(image_flat, -num_points)[-num_points]
+    threshold = image_flat[idx]
+    dots = np.zeros(image.shape)
+    dots[image > threshold] = 1
+
+    ax = axes['D']
+    #contour = ax.contourf(dots)
+    ax.imshow(dots, interpolation='nearest')
+    ax.set_title(f'{num_points} points')
+    ax.set_aspect('equal')
+
+    plt.savefig(fname)
+    plt.clf()
+    print('saved', fname)
+
+
 points = np.loadtxt(SOURCE_DATA_PATH, delimiter=',')
 #points = np.asarray([(random() * IMAGE_SIZE, random() * IMAGE_SIZE) for _ in range(2000)], dtype=float)
 
-fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2,2)
-ax1.scatter(points[:,0], points[:,1], s=4)
-
+num_points = len(points)
 rounded_points = np.floor(points).astype(int) % IMAGE_SIZE
 samples = np.zeros((IMAGE_SIZE, IMAGE_SIZE), dtype=float)
 for [x,y] in rounded_points[:,]:
     samples[x,y] = 1
+ax = plt.subplot(221)
+contour = plt.contourf(samples)
+ax.set_axis_off()
+ax.set_aspect('equal')
+
 samples -= np.mean(samples)
 fft = np.fft.fftshift(np.fft.fft2(samples))
 power = np.abs(fft) ** 2
+power_max = np.max(power)
 frequencies1d = np.fft.fftshift(np.fft.fftfreq(IMAGE_SIZE, d=1/IMAGE_SIZE))
 freqsx, freqsy = np.meshgrid(frequencies1d, frequencies1d)
 
 # that gets us the power spectrum in 2d
-contour = ax2.contourf(freqsx, freqsy, power)
-ax2.axis('scaled')
-plt.colorbar(contour, ax=ax2)
+ax = plt.subplot(222)
+contour = plt.contourf(freqsx, freqsy, power)
+ax.set_axis_off()
+ax.set_aspect('equal')
+plt.colorbar(contour, ax=ax)
 
 # from that we can make a histogram based on distances
 distances = np.sqrt(freqsx**2 + freqsy**2)
@@ -191,6 +281,42 @@ for i in range(NUM_BUCKETS):
         radial_power[i] = 0
 
 radial_frequencies = 0.5 * (buckets[:-1] + buckets[1:]) # center of each bucket
+ax = plt.subplot(223)
+ax.set_axis_off()
+plt.plot(radial_frequencies, radial_power[1:])
+ax = plt.subplot(224)
+ax.set_axis_off()
+plt.subplots_adjust(left=0,bottom=0.02,top=0.98,right=1,wspace=0,hspace=0.08)
+plt.savefig('fpd_input.png', bbox_inches='tight')
+plt.clf()
 
-ax3.plot(radial_frequencies, radial_power[1:])
-plt.show()
+#
+# Reverse the process
+#
+radial_power_to_figures('fpd.png', 'Power spectrum from a Poisson disk distribution', radial_frequencies, radial_power[1:], num_points)
+
+#
+# White noise
+#
+white_radial_power = np.ones(len(radial_power)) * np.mean(radial_power)
+radial_power_to_figures('white.png', 'White noise', radial_frequencies, white_radial_power[1:], num_points)
+
+#
+# Blue noise
+#
+blue_radial_power = np.linspace(np.min(radial_power), np.max(radial_power), len(radial_power))
+radial_power_to_figures('blue.png', 'Blue noise (power proportional to frequency)', radial_frequencies, blue_radial_power[1:], num_points)
+
+#
+# Pink noise
+#
+pink_radial_power = np.linspace(np.max(radial_power), np.min(radial_power), len(radial_power))
+radial_power_to_figures('pink.png', 'Pink noise (power decreases with frequency)', radial_frequencies, pink_radial_power[1:], num_points)
+
+#
+# Step blue
+#
+blue_step_radial_power = 6000 * np.ones(len(radial_power))
+up_to = np.nonzero(radial_frequencies > 50)[0][0]
+blue_step_radial_power[:up_to] = 0
+radial_power_to_figures('step_blue.png', 'Step blue noise', radial_frequencies, blue_step_radial_power[1:], num_points)

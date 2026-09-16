@@ -229,7 +229,7 @@ For instance, you don't want to place every tuft of grass in a field by hand.
 Depending on how you approach it, there are a couple of pitfalls you could fall into!
 A regular grid looks overly artificial, looks very different at different viewing angles, 
 and can cause undesirable interference patterns (<a href="https://en.wikipedia.org/wiki/Moir%C3%A9_pattern">Moiré patterns</a>). 
-Using random numbers naively leads to clustering with some regions densly packed and others sparse.</p>
+Using random numbers naively leads to clustering with some regions densely packed and others sparse.</p>
 <p>What we'd prefer is a balance between the clumpy chaos of pure randomness and the unnatural order of grids. 
 The points should look evenly spaced when viewed at large scales, while still not falling into an obvious pattern at small scales. 
 Distributions meeting these criteria are sometimes called "blue noise."</p>
@@ -251,10 +251,10 @@ Distributions meeting these criteria are sometimes called "blue noise."</p>
         <section>
           <h2><a id="colors-of-noise"></a>Colors of Noise</h2>
           <p>The colors of noise concept comes from signal processing in fields such as audio engineering and electronics.
-The name is an analogy with visible light: a way to characterize the data according to how much of its "power" sits at different frequencies.
-White noise is probably the most familiar "color of noise". It is so named because, like white light, it has a flat power spectrum. No particular frequencies dominate.
-Red is at the low end of visible light frequencies, and blues and violets at the high end. So when higher frequencies dominate, we call it blue noise.</p>
-<p>In the case of, say, a procedurally generated forest, we want a relatively even density of trees, so that no large areas of the forest looks much different compared to another large area. That means we want low or even zero power at low frequencies. And at the same time, we want to prevent trees from occurring too close together. That tells us that we want higher power at higher frequencies. Blue noise!</p>
+The name is an analogy with visible light: a way to characterize noise according to how its "power" is distributed over different frequencies. The mathematical tool used for it is known as a Fourier transform. You've probably seen it in use before in the spectrum analyzer graphs of audio tools. The different colors of noise have distinctive shapes when displayed this way.<sup><cite><a href="#cite-itsntia" id="ref-itsntia">[1]</a></cite></sup></p>
+<p>White noise is probably the most familiar "color of noise". It is so named because, like white light, it has a flat power spectrum. No particular frequencies dominate.
+Red is at the low end of visible light frequencies, and blues and violets at the high end, so when higher frequencies dominate, we call it blue noise.</p>
+<p>In the case of, say, a procedurally generated forest, we want a relatively even density of trees, so that no large areas of the forest look much different compared to another large area. That means we want low or even zero power at low frequencies, leaving just the higher frequencies. Blue noise!</p>
           <div class="threecolumns">
             <figure>
               <img src="colors_of_noise_white.svg" alt="White noise (top) and its flat power spectrum (bottom)"/>
@@ -272,13 +272,14 @@ Red is at the low end of visible light frequencies, and blues and violets at the
           <p>It might seem odd to think of frequencies and power spectra when we are trying to plant some virtual trees. And it probably should!
 These concepts are usually about how a value varies over time, not a set of discrete points.
 It would be reasonable to think of the name "blue noise" as metaphorical.
-There is a rigorous mathematics to it, though, and it is even possible to generate a point set based on a power spectrum<sup><cite><a href="#cite-zhou2012" id="ref-zhou2012">[2]</a></cite></sup>, but I am not aware of a method that is suitable for real-time uses like a videogame. So while "color" of noise is a useful tool for analyzing a solution, we'll be approaching the problem from a different angle.</p>
+There is a rigorous mathematics to it, though, and it is even possible to make a point set to match a given power spectrum <sup><cite><a href="#cite-zhou2012" id="ref-zhou2012">[2]</a></cite></sup>, but I am not aware of such a method that is suitable for real-time uses. So, while color of noise is a useful tool for analyzing a solution, we'll be approaching the problem from a different angle.</p>
         </section>
         <section>
           <h2><a id="possible-approaches"></a>Possible Approaches</h2>
-          <p>The approach I am going to go into most detail about here and the one I would most often recommend is referred to as Fast Poisson Disk Sampling, from the title of a SIGGRAPH paper by Robert Bridson<sup><cite><a href="#cite-bridson2007" id="ref-bridson2007">[3]</a></cite></sup>. I'll mention a few others first, though, because they are interesting in their own right.</p>
+          <p>Fast Poisson Disk Sampling is the approach I will describe in most detail here and the one I would recommend for most blue-noise use cases.
+It comes from a SIGGRAPH paper by Robert Bridson <sup><cite><a href="#cite-bridson2007" id="ref-bridson2007">[3]</a></cite></sup>. I'll mention a few others first, though, because they are interesting, too.</p>
           <h3><a id="jittered-grid"></a>Jittered Grid</h3>
-          <p>In a way, a regular grid is actually pretty close to what we want. The points are very evenly spaced; the problem is that they are <em>too</em> evenly spaced. What if we took the points on that grid and randomly pushed them around a bit? That's the jittered grid technique. In my experiments with it, while it certainly improves on both pure white noise and on a regular grid, it has more problems with clustering and anisotropy (non-uniformity in different directions) compared to the other approaches I discuss here. It is very fast, though, and may be close enough for many use cases!</p>
+          <p>In a way, a regular grid is pretty close to what we want. The points are very evenly spaced; the problem is that they are <em>too</em> evenly spaced. What if we took the points on that grid and randomly pushed them around a bit? That's the jittered grid technique. In my experiments with it, while it certainly improves on both pure white noise and on a regular grid, it has more problems with clustering and anisotropy (non-uniformity in different directions) compared to the other approaches I discuss here. It is very fast, though, and may be close enough for many use cases!</p>
           <div class="threecolumns">
             <figure>
               <img src="jittered_grid_square.svg" alt="Animation illustrating jittered grid points."/>
@@ -291,7 +292,7 @@ There is a rigorous mathematics to it, though, and it is even possible to genera
           </div>
 
           <h3><a id="dart-throwing"></a>Dart Throwing</h3>
-          <p>We can just "throw darts" at the region and use those points. By which I mean that for each coordinate of a point, we just take a uniform random variable scaled to match the size of the region. This generates a white-noise point distribution with the clumping and gapping problems as seen at the top of this article. But if during that process we reject darts that land within some radius of other darts, the revised process gives us much better results. The cost is that we potentially need to throw very many more darts to find valid ones as density increases.</p>
+          <p>We can just "throw darts" at the region and use those points. By which I mean that for each coordinate of a point, we just take a uniform random variable scaled to match the size of the region. This generates a white-noise point distribution with the clumping and gapping problems as seen at the top of this article. But if during that process we reject darts that land within some radius of other darts, the revised process gives us much better results. The cost is that we potentially need to throw many more darts to find valid ones as density increases.</p>
           <p></p>
           <div class="threecolumns">
             <figure>
@@ -301,7 +302,7 @@ There is a rigorous mathematics to it, though, and it is even possible to genera
           </div>
 
           <h3><a id="mitchells-best-candidate"></a>Mitchell's Best Candidate</h3>
-          <p>The Mitchell's Best Candidate algorithm is a variation of dart throwing. Instead of throwing darts one at a time and rejecting them, we throw in batches and keep only the best dart of each batch. "Best" in this case means the candidate whose distance from its nearest previously accepted point is greatest. This can become quite slow as the number of accepted points grows, but it does produce good results.</p>
+          <p>Mitchell's Best Candidate algorithm is a variation of dart throwing. Instead of throwing darts one at a time and rejecting them, we throw in batches and keep only the best dart of each batch. "Best" in this case means the candidate whose distance from its nearest previously accepted point is greatest. This can become quite slow as the number of accepted points grows, but it does produce good results.</p>
           <div class="threecolumns">
             <figure>
               <img src="mitchells_best.svg" alt="Animation illustrating Mitchell's Best Candidate."/>
@@ -310,8 +311,7 @@ There is a rigorous mathematics to it, though, and it is even possible to genera
           </div>
 
           <h3><a id="more-exotic-approaches"></a>More Exotic Approaches</h3>
-          <p>People have come up with many ways to do this with various advantages and disadvantages. Tile-based methods make a library of smaller distributions of blue noise and then combine them to fill larger regions. An <dfn title="An aperiodic tiling can cover the whole surface without ever perfectly repeating">aperiodic tiling</dfn> can be used as the basis for the points. Points generated by other methods can be <dfn title="iteratively adjusted to spread them out more evenly">relaxed</dfn> to produce a smoother distribution.
-          For grass on the game The Witness, Casey Muratori came up with an <a href="https://caseymuratori.com/blog_0011">approach based on intersecting sets of concentric circles</a>.</p>
+          <p>People have come up with many ways to do this with various advantages and disadvantages. Tile-based methods make a library of smaller distributions of blue noise and then combine them to fill larger regions. An <dfn title="An aperiodic tiling can cover the whole surface without ever perfectly repeating">aperiodic tiling</dfn> can be used as the basis for the points. Distributions generated by other methods can be <dfn title="iteratively adjusted to spread them out more evenly">relaxed</dfn> to produce smoother ones.</p>
           <div class="threecolumns">
             <figure>
               <img src="tile_based.svg" alt="A simplistic tile-based approach."/>
@@ -330,10 +330,10 @@ There is a rigorous mathematics to it, though, and it is even possible to genera
         <section>
           <h2><a id="fast-poisson-disk-sampling"></a>Fast Poisson Disk Sampling</h2>
           <h3><a id="fpd-overview"></a>Overview</h3>
-<p>The fast Poisson disk method by Bridson seems to have become the most common approach. The "Poisson disk" part of the name refers to distributions with a hard minimum distance between points, meeting our "no clumping" criterion. This is distinct from a "Poisson distribution", confusingly, which is more like white noise. Both are named after Siméon Denis Poisson. The "fast" part comes from a few clever tricks it uses to perform well (linear time in the number of points generated) and still produce high-quality results: a spatial grid, an active list, and selecting points uniformly.</p>
+<p>The fast Poisson disk method by Bridson seems to have become the most common approach. The "Poisson disk" part of the name refers to distributions with a hard minimum distance between points, meeting our "no clumping" criterion. Confusingly, this is distinct from a "Poisson distribution", both named after Siméon Denis Poisson, which is more like white noise. The "fast" part comes from a few clever tricks it uses to perform well (linear time in the number of points generated) and still produce high-quality results: a spatial grid, an active list, and selecting points uniformly.</p>
 <p>I'm going to be over-explaining it here in case that helps a beginner programmer implement it, but <a href="./bridson-siggraph07-poissondisk.pdf">Bridson's paper</a> managed to explain it in barely a page.</p>
 <p>The process goes like this:<ol>
-            <li>Randomly choose a seed point to start from, adding it to the grid and active list.</li>
+            <li>Randomly choose a seed point to start from and add it to the grid and active list.</li>
             <li>Choose a test candidate from an annulus (an annulus is the doughnut-shaped region bounded by two concentric circles) around an active point.</li>
             <li>Using the grid to narrow down the search quickly, find the accepted point nearest the candidate.</li>
             <li>If it is at least the minimum distance away, accept that new point, adding it to the grid and active list.</li>
@@ -475,7 +475,7 @@ typedef struct FpdState {
     }
     ...</code></pre></div></details>
           <h4>Initialize the list</h4>
-          <p>To keep things simple, I am allocating the maximum amount of space that the active list could need all at once up front. In practice, sometimes you won't generate that many points, and even if you do, they won't usually all be active at once. So there may be benefits to starting smaller and only increasing the buffer size as needed. For this example however I allocate based on a worst case of either the output buffer size or the number of grid squares, whichever is smaller. The initial length of the list is zero.</p>
+          <p>To keep things simple, I am allocating the maximum amount of space that the active list could need all at once up front. In practice, sometimes you won't generate that many points, and even if you do, they won't usually all be active at once, so there may be benefits to starting smaller and only increasing the buffer size as needed. For this example, I am allocating based on the worst case: either the output buffer size or the number of grid squares, whichever is smaller. The initial length of the list is zero.</p>
           <details><summary>code</summary><div class="tabs">
             <input type="radio" id="init-list-c" name="tab-group-init-list" checked>
             <label for="init-list-c">C</label>
@@ -564,8 +564,8 @@ static int fpd_insert(FpdState *fpd, Pt p) {
             <figcaption>Choosing a candidate point based on an active point.</figcaption>
             </figure></div>
           <p>Tracking the number of times we attempt this in a row, generate a candidate point, chosen uniformly from within an annulus centered on the chosen active point with radii <code>min_dist</code> and <code>2 * min_dist</code>.</p>
-          <p>Choosing a candidate minimum distance away makes sure we don't have to imemdiately reject it for being too close to the chosen active point. Varying the distance and angle prevents us from generating patterns with two much regularity.</p>
-          <p>There is some nuance here to make sure that we don't bias the inner part of the annulus. The simplest way to choose a point in the annulus is to choose an angle uniformly between zero and two pi and a radius uniformly between <code>min_dist</code> and <code>2 * min_dist</code>.  Notice, though, that the inner part of the annulus has a smaller circumference than the outer, but will be chosen just as often on average, meaning the inner parts of the annulus will be a bit over-represented. To choose a point in an unbiased way, we need the probability of choosing a radius to be proportional to that radius, not uniform. The math works out that we can do that by instead choosing the <em>square</em> of the radius uniformly. We can then take the square root of that to get a radius, that chooses points uniformly in the annulus. That said, the more naive approach usually produces acceptable results, too.</p>
+          <p>Choosing a candidate minimum distance away makes sure we don't have to immediately reject it for being too close to the chosen active point. Varying the distance and angle prevents us from generating patterns with too much regularity.</p>
+          <p>There is some nuance here to make sure that we don't bias the inner part of the annulus. The simplest way to choose a point in the annulus is to choose an angle uniformly between zero and two pi and a radius uniformly between <code>min_dist</code> and <code>2 * min_dist</code>.  Notice, though, that the inner part of the annulus has a smaller circumference than the outer, but will be chosen just as often on average, meaning the inner parts of the annulus will be a bit over-represented. To choose a point in an unbiased way, we need the probability of choosing a radius to be proportional to that radius, not uniform. The math works out that we can do that by choosing the <em>square</em> of the radius uniformly. We can then take the square root of that to get a radius, that chooses points uniformly in the annulus. That said, the naive approach usually produces acceptable results, too.</p>
           <details><summary>code</summary><div class="tabs">
             <input type="radio" id="step-two-two-c" name="tab-group-step-two-two" checked>
             <label for="step-two-two-c">C</label>
@@ -591,7 +591,7 @@ static Pt fpd_random_from_annulus(const Pt p, const float min_r_sq) {
     };
 }</code></pre></div></details>
           <h4>2.3 Distance test</h4>
-          <p>We then have to either accept the candidate point or reject it. To do this quickly, we can first find which row and column of our grid it would fall into, by simply dividing the coordinates by our cell size. If the row or column is outside of the grid we can reject the point before we even consider previous points. If it wasn't rejected, we look at what points we placed in nearby grid cells. Based on our chosen cell size, any previously-accepted point that is within the minimum distance of the candidate would then have to be in a grid cell within 2 grid cells of the one the candidate would go into, at least in two dimensions. Since each grid cell can have at most one accepted point, we have a constant upper bound on the number of points we could have to test per candidate.</p>
+          <p>We then must either accept the candidate point or reject it. To do this quickly, we can first find which row and column of our grid it would fall into, by simply dividing the coordinates by our cell size. If the row or column is outside of the grid, we can reject the point before we even consider previous points. If it wasn't rejected, we look at what points we placed in nearby grid cells. Based on our chosen cell size, any previously accepted point that is within the minimum distance of the candidate would then have to be in a grid cell within 2 grid cells of the one the candidate would go into, at least in two dimensions. Since each grid cell can have at most one accepted point, we have a constant upper bound on the number of points we could have to test per candidate.</p>
           <details><summary>code</summary><div class="tabs">
             <input type="radio" id="step-two-three-c" name="tab-group-step-two-three" checked>
             <label for="step-two-three-c">C</label>
@@ -651,7 +651,7 @@ static int fpd_distance_check(const FpdState *fpd, const Pt p) {
             <figcaption>Inserting a new point after distance tests.</figcaption>
             </figure></div>
           <h4>2.5 Reject the candidate?</h4>
-          <p>If we reach this step, we know we ened to reject the candidate. It may also be time to stop usign this active point. If there haven't yet been <code>max_tries</code> rejected candidates in a row, go back to step 2.2 and try a new candidate from the same annulus, but if there have been, remove the chosen active point from the active list and go back to step 2.1.</p>
+          <p>If we reach this step, we know we need to reject the candidate. It may also be time to stop using this active point. If there haven't yet been <code>max_tries</code> rejected candidates in a row, go back to step 2.2 and try a new candidate from the same annulus, but if there have been, remove the chosen active point from the active list and go back to step 2.1.</p>
           <details><summary>code</summary><div class="tabs">
             <input type="radio" id="step-two-six-c" name="tab-group-step-two-six" checked>
             <label for="step-two-six-c">C</label>
@@ -717,17 +717,6 @@ static int fpd_cleanup(FpdState *fpd) {
                     <img src="fpd_process.svg" alt="Animation of the full fast Poisson disk process."/>
                     <figcaption>Animation of the full fast Poisson disk process.</figcaption>
                   </figure></div>
-          <h3>TODO</h3>
-          <ul>
-            <li>Clearly state the problem at the start</li>
-            <li>the colors of noise section is too long and not actually useful</li>
-            <li>the other approaches were a fun and interesting excuse for more animations, but the section is too long and not actually useful</li>
-            <li>work in keywords like "procedural generation" "stochastic process" and idk what else</li>
-            <li>more transitional phrases like "now that we have gnerated X, we do Y"?</li>
-            <li>make explicit that it is overexplained for educational purposes</li>
-            <li>link to papers and other articles related to it</li>
-            <li>link to source code</li>
-          </ul>
         </section>
         <section>
           <h2><a id="source-code"></a>Source Code</h2>
@@ -736,7 +725,7 @@ static int fpd_cleanup(FpdState *fpd) {
         <section class="references">
           <h2>References</h2>
           <ol>
-            <li><a id="cite-itsntia" href="#ref-itsntia">^</a> Several colors of noise are defined by <cite><a href="https://its.ntia.gov/research-topics/federal-standard-1037c/">"Federal Standard 1037C"</a>. Institute for Telecommunication Sciences. Institute for Telecommunication Sciences, National Telecommunications and Information Administration (ITS-NTIA).</cite></li>
+            <li><a id="cite-itsntia" href="#ref-itsntia">^</a> Several colors of noise are defined by <cite><a href="https://its.ntia.gov/research-topics/federal-standard-1037c/">"Federal Standard 1037C"</a></cite> of the Institute for Telecommunication Sciences, but the terms are often used much more loosely than that.</li>
             <li><a id="cite-zhou2012" href="#ref-zhou2012">^</a> <cite>Yahan Zhou, Haibin Huang, Li-Yi Wei, and Rui Wang. 2012. Point sampling with general noise spectrum. ACM Trans. Graph. 31, 4, Article 76 (July 2012), 11 pages. <a href="https://doi.org/10.1145/2185520.2185572">https://doi.org/10.1145/2185520.2185572</a></cite></li>
             <li><a id="cite-bridson2007" href="#ref-bridson2007">^</a> <cite>Robert Bridson. 2007. Fast Poisson disk sampling in arbitrary dimensions. In ACM SIGGRAPH 2007 sketches (SIGGRAPH '07). Association for Computing Machinery, New York, NY, USA, 22–es. <a href="https://doi.org/10.1145/1278780.1278807">https://doi.org/10.1145/1278780.1278807</a></cite><br/><a href="./bridson-siggraph07-poissondisk.pdf">Mirrored here</a>.</li>
           </ol>

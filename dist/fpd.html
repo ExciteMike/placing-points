@@ -224,15 +224,15 @@
         </div>
         <section>
             <h2><a id="motivation"></a>Motivation</h2>
-            <p>In videogames and computer graphics, we often want to distribute things throughout a region.
-              For instance, you don't want to place every tuft of grass in a field by hand. 
-              Depending on how you approach it, there are a couple of pitfalls you could fall into! A regular grid looks overly artificial, 
-              looks very different at different viewing angles, and can cause undesirable interference patterns 
-              (<a href="https://en.wikipedia.org/wiki/Moir%C3%A9_pattern">Moiré patterns</a>). Using random numbers naively leads to 
-              clustering with some regions will be dense and others sparse.</p>
-            <p>What we'd prefer is a balance between that clumpy chaos of pure randomness and the unnatural order of grids. The points 
-              should look evenly spaced when viewed at large scales, while still not falling into an obvious pattern at small scales. 
-              Distributions meeting those criteria are sometimes called "blue noise."</p>
+<p>In videogames and computer graphics, we often want to distribute things throughout a region.
+For instance, you don't want to place every tuft of grass in a field by hand. 
+Depending on how you approach it, there are a couple of pitfalls you could fall into!
+A regular grid looks overly artificial, looks very different at different viewing angles, 
+and can cause undesirable interference patterns (<a href="https://en.wikipedia.org/wiki/Moir%C3%A9_pattern">Moiré patterns</a>). 
+Using random numbers naively leads to clustering with some regions densly packed and others sparse.</p>
+<p>What we'd prefer is a balance between the clumpy chaos of pure randomness and the unnatural order of grids. 
+The points should look evenly spaced when viewed at large scales, while still not falling into an obvious pattern at small scales. 
+Distributions meeting these criteria are sometimes called "blue noise."</p>
             <div class="threecolumns">
               <figure>
                 <img src="intro_grid.svg" alt="250 Points distributed on a uniform grid"/>
@@ -250,13 +250,9 @@
         </section>
         <section>
           <h2><a id="colors-of-noise"></a>Colors of Noise</h2>
-          <p>The colors of noise concept comes from signal processing in audio engineering, electronics, and other fields.
-            The name is an analogy with visible light: a way to characterize the data according to how much of its "power" is at different frequencies.
-            In audio, we experience this as pitch and timbre; in light, we perceive it as color.</p>
-          <p>In engineering and the sciences, it is often fruitful to analyze a signal in terms of its frequencies (Fourier analysis). You've probably seen a music player visualization where you've
-            watched the bars on the left end bounce with the bass notes and the right end with the high notes. Those are using Fourier analysis to plot a power spectrum!
-            We can do that will all kinds of signals, including a point set. Colors of noise are defined in terms of the shape of that power spectrum <sup><cite><a href="#cite-itsntia" id="ref-itsntia">[1]</a></cite></sup>.</p>
-<p>White noise is probably the most familiar "color of noise". It is so named because, like white light, it has a flat power spectrum. No particular frequencies dominate.
+          <p>The colors of noise concept comes from signal processing in fields such as audio engineering and electronics.
+The name is an analogy with visible light: a way to characterize the data according to how much of its "power" sits at different frequencies.
+White noise is probably the most familiar "color of noise". It is so named because, like white light, it has a flat power spectrum. No particular frequencies dominate.
 Red is at the low end of visible light frequencies, and blues and violets at the high end. So when higher frequencies dominate, we call it blue noise.</p>
 <p>In the case of, say, a procedurally generated forest, we want a relatively even density of trees, so that no large areas of the forest looks much different compared to another large area. That means we want low or even zero power at low frequencies. And at the same time, we want to prevent trees from occurring too close together. That tells us that we want higher power at higher frequencies. Blue noise!</p>
           <div class="threecolumns">

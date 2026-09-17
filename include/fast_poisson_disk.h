@@ -158,12 +158,12 @@ static int fpd_init(
 /* return nonzero if candidate point seems ok */
 static int fpd_distance_check(const FpdState *fpd, const Pt p) {
     const float min_dist_sq = fpd->min_dist_sq;
-    const size_t candidate_row = (size_t)floor(p.y / fpd->cell_size);
-    const size_t candidate_col = (size_t)floor(p.x / fpd->cell_size);
+    const size_t candidate_row = (size_t)fmax(0.f, fmin((float)(fpd->num_rows), floor(p.y / fpd->cell_size)));
+    const size_t candidate_col = (size_t)fmax(0.f, fmin((float)(fpd->num_cols), floor(p.x / fpd->cell_size)));
     const size_t min_row = (size_t) fpd_max(2, candidate_row) - 2;
-    const size_t max_row = (size_t) fpd_min(candidate_row + 3, fpd->num_rows - 1);
+    const size_t max_row = (size_t) fpd_min(candidate_row + 2, fpd->num_rows - 1);
     const size_t min_col = (size_t) fpd_max(2, candidate_col) - 2;
-    const size_t max_col = (size_t) fpd_min(candidate_col + 3, fpd->num_cols - 1);
+    const size_t max_col = (size_t) fpd_min(candidate_col + 2, fpd->num_cols - 1);
     for (size_t row=min_row;row<=max_row;++row) {
         for (size_t col=min_col;col<=max_col;++col) {
             const size_t index = row * fpd->num_cols + col;
@@ -183,7 +183,7 @@ static int fpd_distance_check(const FpdState *fpd, const Pt p) {
 }
 
 
-/* free resources allocated by the FpdState. But not the FpdState itself. That's on the stack. */
+/* free resources allocated for the FpdState. But not the FpdState itself. That's on the stack. */
 static int fpd_cleanup(FpdState *fpd) {
     if (NULL == fpd) {
         return 0;
@@ -211,7 +211,7 @@ static float fpd_randrange(const float min, const float max) {
    centered on `p`, with an inner radius equal to the 
    minimum radius and an outer radius twice the minimum radius. */
 static Pt fpd_random_from_annulus(const Pt p, const float min_r_sq) {
-    float TAU = 2.f * 3.14159265358979323846;
+    const float TAU = 2.f * 3.14159265358979323846;
     float a = fpd_randrange(0, TAU);
     float r_sq = fpd_randrange(min_r_sq, 4.f * min_r_sq);
     float r = sqrtf(r_sq);
@@ -247,7 +247,7 @@ static int fpd_insert(FpdState *fpd, Pt p) {
     fpd->grid[index] = dst;
 
     /* insert into active list */
-    fpd->active_list[fpd->list_len++] = &(fpd->buf[fpd->count]);
+    fpd->active_list[fpd->list_len++] = dst;
 
     /* advance */
     fpd->count++;

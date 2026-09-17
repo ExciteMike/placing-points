@@ -192,9 +192,9 @@
     <main>
       <article>
         <header>
-            <h1>[DRAFT]Placing Points: Fast Poisson Disk</h1>
+            <h1>Placing Points: Fast Poisson Disk</h1>
             <div class="byline">By <a href="https://excitemike.com"> Mike Meyer</a></div>
-            <div class="dateline">2026-09-INSERT DATE</div>
+            <div class="dateline">2026-09-17</div>
         </header>
         <div id="toc">
             <h2>Contents</h2>
@@ -226,35 +226,35 @@
             <h2><a id="motivation"></a>Motivation</h2>
 <p>In videogames and computer graphics, we often want to distribute things throughout a region.
 For instance, you don't want to place every tuft of grass in a field by hand. 
-Depending on how you approach it, there are a couple of pitfalls you could fall into!
+Depending on how you approach it, there are a couple of pitfalls to watch out for!
 A regular grid looks overly artificial, looks very different at different viewing angles, 
 and can cause undesirable interference patterns (<a href="https://en.wikipedia.org/wiki/Moir%C3%A9_pattern">Moiré patterns</a>). 
 Using random numbers naively leads to clustering with some regions densely packed and others sparse.</p>
 <p>What we'd prefer is a balance between the clumpy chaos of pure randomness and the unnatural order of grids. 
-The points should look evenly spaced when viewed at large scales, while still not falling into an obvious pattern at small scales. 
+The points should look evenly spaced when viewed at large scales, while still avoiding an obvious pattern at small scales. 
 Distributions meeting these criteria are sometimes called "blue noise."</p>
             <div class="threecolumns">
               <figure>
                 <img src="intro_grid.svg" alt="250 Points distributed on a uniform grid"/>
-                <figcaption>250 Points distributed on a uniform grid</figcaption>
+                <figcaption>250 Points distributed on a uniform grid.</figcaption>
               </figure>
               <figure>
                 <img src="intro_white.svg" alt="250 Points distributed randomly"/>
-                <figcaption>250 Points distributed randomly (a Poisson point process)</figcaption>
+                <figcaption>250 Points distributed randomly (a Poisson point process).</figcaption>
               </figure>
               <figure>
                 <img src="intro_blue.svg" alt="Blue noise (250 points)"/>
-                <figcaption>Blue noise (250 points)</figcaption>
+                <figcaption>Blue noise (250 points).</figcaption>
               </figure>
             </div>
         </section>
         <section>
           <h2><a id="colors-of-noise"></a>Colors of Noise</h2>
-          <p>The colors of noise concept comes from signal processing in fields such as audio engineering and electronics.
-The name is an analogy with visible light: a way to characterize noise according to how its "power" is distributed over different frequencies. The mathematical tool used for it is known as a Fourier transform. You've probably seen it in use before in the spectrum analyzer graphs of audio tools. The different colors of noise have distinctive shapes when displayed this way.<sup><cite><a href="#cite-itsntia" id="ref-itsntia">[1]</a></cite></sup></p>
-<p>White noise is probably the most familiar "color of noise". It is so named because, like white light, it has a flat power spectrum. No particular frequencies dominate.
-Red is at the low end of visible light frequencies, and blues and violets at the high end, so when higher frequencies dominate, we call it blue noise.</p>
-<p>In the case of, say, a procedurally generated forest, we want a relatively even density of trees, so that no large areas of the forest look much different compared to another large area. That means we want low or even zero power at low frequencies, leaving just the higher frequencies. Blue noise!</p>
+          <p>Color of noise is a concept from signal processing in fields such as audio engineering and electronics.
+The name is an analogy with visible light: a way to characterize the data according to how much its energy is in different frequency ranges.
+White noise is probably the most familiar color of noise. It is so named because, like white light, it has a flat power spectrum. No frequency range dominates the others.
+Red is at the low end of visible light frequencies, and blue and violet at the high end. When higher frequencies dominate, we call it blue noise.</p>
+<p>In the case of, say, a procedurally generated forest, we want a relatively even density of trees, so that no large area of the forest looks much different from another. That means we want low power at low frequencies, concentrating the power in the high frequencies. Blue noise!</p>
           <div class="threecolumns">
             <figure>
               <img src="colors_of_noise_white.svg" alt="White noise (top) and its flat power spectrum (bottom)"/>
@@ -270,16 +270,15 @@ Red is at the low end of visible light frequencies, and blues and violets at the
             </figure>
           </div>
           <p>It might seem odd to think of frequencies and power spectra when we are trying to plant some virtual trees. And it probably should!
-These concepts are usually about how a value varies over time, not a set of discrete points.
-It would be reasonable to think of the name "blue noise" as metaphorical.
-There is a rigorous mathematics to it, though, and it is even possible to make a point set to match a given power spectrum <sup><cite><a href="#cite-zhou2012" id="ref-zhou2012">[2]</a></cite></sup>, but I am not aware of such a method that is suitable for real-time uses. So, while color of noise is a useful tool for analyzing a solution, we'll be approaching the problem from a different angle.</p>
+These concepts are usually about some value changes over time, not a set of discrete points.
+It would be reasonable to think of the name "blue noise" as just metaphorical.
+There is a rigorous mathematical interpretation, though, and it is even possible to generate a point set based on a power spectrum <sup><cite><a href="#cite-zhou2012" id="ref-zhou2012">[2]</a></cite></sup>, but as far as I am aware, those methods require many passes over the point set and take a while to converge on a solution, so they are not particularly suitable for real-time uses like a game. Color of noise is a useful tool for analyzing a distribution, but to create one, we'll approach the problem from a different angle.</p>
         </section>
         <section>
           <h2><a id="possible-approaches"></a>Possible Approaches</h2>
-          <p>Fast Poisson Disk Sampling is the approach I will describe in most detail here and the one I would recommend for most blue-noise use cases.
-It comes from a SIGGRAPH paper by Robert Bridson <sup><cite><a href="#cite-bridson2007" id="ref-bridson2007">[3]</a></cite></sup>. I'll mention a few others first, though, because they are interesting, too.</p>
+          <p>Fast Poisson disk sampling is the main approach I will present here and the one I would recommend in most cases. It comes from a SIGGRAPH paper by Robert Bridson <sup><cite><a href="#cite-bridson2007" id="ref-bridson2007">[3]</a></cite></sup>. I'll mention a few others first, though, because they are interesting, too.</p>
           <h3><a id="jittered-grid"></a>Jittered Grid</h3>
-          <p>In a way, a regular grid is pretty close to what we want. The points are very evenly spaced; the problem is that they are <em>too</em> evenly spaced. What if we took the points on that grid and randomly pushed them around a bit? That's the jittered grid technique. In my experiments with it, while it certainly improves on both pure white noise and on a regular grid, it has more problems with clustering and anisotropy (non-uniformity in different directions) compared to the other approaches I discuss here. It is very fast, though, and may be close enough for many use cases!</p>
+          <p>In a way, a regular grid is close to what we want. The points are very evenly spaced; the problem is that they are <em>too</em> evenly spaced. What if we took the points on that grid and randomly pushed them around a bit? That's the jittered grid technique. In my experiments with it, while it certainly improves on both pure white noise and on a regular grid, it has more problems with clustering and anisotropy (non-uniformity in different directions) compared to the other approaches I discuss here. It is very fast, though, and may be close enough for many use cases!</p>
           <div class="threecolumns">
             <figure>
               <img src="jittered_grid_square.svg" alt="Animation illustrating jittered grid points."/>
@@ -292,7 +291,7 @@ It comes from a SIGGRAPH paper by Robert Bridson <sup><cite><a href="#cite-brids
           </div>
 
           <h3><a id="dart-throwing"></a>Dart Throwing</h3>
-          <p>We can just "throw darts" at the region and use those points. By which I mean that for each coordinate of a point, we just take a uniform random variable scaled to match the size of the region. This generates a white-noise point distribution with the clumping and gapping problems as seen at the top of this article. But if during that process we reject darts that land within some radius of other darts, the revised process gives us much better results. The cost is that we potentially need to throw many more darts to find valid ones as density increases.</p>
+          <p>We can just "throw darts" at the region and use those points. By which I mean that for each coordinate of a point, we just take a uniform random variable scaled to match the size of the region. This generates a distribution with the clumping and gapping problems as seen at the top of this article. But if during that process we reject darts that land within some radius of other darts, the revised process gives us much better results. The cost is that we potentially need to throw many more darts to find valid ones as density increases.</p>
           <p></p>
           <div class="threecolumns">
             <figure>
@@ -311,7 +310,10 @@ It comes from a SIGGRAPH paper by Robert Bridson <sup><cite><a href="#cite-brids
           </div>
 
           <h3><a id="more-exotic-approaches"></a>More Exotic Approaches</h3>
-          <p>People have come up with many ways to do this with various advantages and disadvantages. Tile-based methods make a library of smaller distributions of blue noise and then combine them to fill larger regions. An <dfn title="An aperiodic tiling can cover the whole surface without ever perfectly repeating">aperiodic tiling</dfn> can be used as the basis for the points. Distributions generated by other methods can be <dfn title="iteratively adjusted to spread them out more evenly">relaxed</dfn> to produce smoother ones.</p>
+          <p>People have come up with many ways to do this with various advantages and disadvantages.
+Tile-based methods make a library of smaller distributions of blue noise and then combine them to fill larger regions.
+An aperiodic tiling can be used as the basis for the points.
+Points generated by other methods can be "relaxed" to produce a smoother distribution.</p>
           <div class="threecolumns">
             <figure>
               <img src="tile_based.svg" alt="A simplistic tile-based approach."/>
@@ -330,16 +332,16 @@ It comes from a SIGGRAPH paper by Robert Bridson <sup><cite><a href="#cite-brids
         <section>
           <h2><a id="fast-poisson-disk-sampling"></a>Fast Poisson Disk Sampling</h2>
           <h3><a id="fpd-overview"></a>Overview</h3>
-<p>The fast Poisson disk method by Bridson seems to have become the most common approach. The "Poisson disk" part of the name refers to distributions with a hard minimum distance between points, meeting our "no clumping" criterion. Confusingly, this is distinct from a "Poisson distribution", both named after Siméon Denis Poisson, which is more like white noise. The "fast" part comes from a few clever tricks it uses to perform well (linear time in the number of points generated) and still produce high-quality results: a spatial grid, an active list, and selecting points uniformly.</p>
+<p>The fast Poisson disk method by Bridson seems to have become the most common approach. The "Poisson disk" part of the name refers to distributions with a hard minimum distance between points, enforcing our "no clumping" criterion. (Not to be confused with "Poisson point process" or "Poisson distribution", which are also named after Siméon Denis Poisson). The "fast" part comes from a few clever tricks it uses to perform well (linear time in the number of points generated, assuming fixed dimension and number of tries per point) yet still produce high-quality results: a spatial grid, and an "active list" that guides the choice of candidate points.</p>
 <p>I'm going to be over-explaining it here in case that helps a beginner programmer implement it, but <a href="./bridson-siggraph07-poissondisk.pdf">Bridson's paper</a> managed to explain it in barely a page.</p>
 <p>The process goes like this:<ol>
             <li>Randomly choose a seed point to start from and add it to the grid and active list.</li>
-            <li>Choose a test candidate from an annulus (an annulus is the doughnut-shaped region bounded by two concentric circles) around an active point.</li>
+            <li>Choose a test candidate at a distance between <code>min_dist</code> and <code>2 * min_dist</code> from an active point.</li>
             <li>Using the grid to narrow down the search quickly, find the accepted point nearest the candidate.</li>
             <li>If it is at least the minimum distance away, accept that new point, adding it to the grid and active list.</li>
-            <li>If it is nearer than the minimum distance, then go back to choosing a test candidate from the annulus. Up to limit on the number of attempts.</li>
+            <li>If it is nearer than the minimum distance, then go back to choosing a test candidate. Up to the limit on the number of attempts.</li>
             <li>If the limited number of attempts is exceeded, remove that point from the active list.</li>
-            <li>If we haven't yet produced enough points and there are still any active points, choose a new active point to center the annulus on and go back to choosing a candidate from the annulus.</li>
+            <li>If we haven't yet produced enough points and there are still any active points, choose a new active point and go back to choosing a candidate from around it.</li>
             <li>If we have generated the target number of points or there are no more active points, we are done.</li>
           </ol></p>
           <h3><a id="data-structures"></a>Data Structures</h3>
@@ -395,7 +397,7 @@ typedef struct FpdState {
             <table class="paramstable">
               <tr>
                 <td><code>buf</code>, <code>bufsize</code></td>
-                <td>A pointer to where the generated points can be stored, and how many can be stored there. This sets an upper limit on how many points the function will generate.</td>
+                <td>A pointer to where the generated points can be stored, and how many can be stored there. This sets an upper limit on how many points the function will generate. Note that the buffer will not necessarily be filled.</td>
               </tr>
               <tr>
                 <td><code>width</code>, <code>height</code></td>
@@ -407,11 +409,11 @@ typedef struct FpdState {
               </tr>
               <tr>
                 <td><code>max_tries</code></td>
-                <td>A maximum number of consecutive candidate rejections before a point is removed from the active list. 30 is a common value for this parameter.</td>
+                <td>A maximum number of consecutive candidate rejections before a point is removed from the active list. 30 is commonly used.</td>
               </tr>
               <tr>
                 <td><code>out_num_points</code></td>
-                <td>Will be set to the number of points written to <code>buf</code>.</td>
+                <td>Will be set to the number of points written to <code>buf</code>. Must be non-NULL.</td>
               </tr>
             </table>
             </ul>
@@ -430,17 +432,17 @@ typedef struct FpdState {
 ) {
 </code></pre></div></details>
           <h3><a id="step-zero-initialization"></a>Step 0. Initialization</h3>
-          <p>To get started, we have to initialize those data structures. We've initially generated zero points, so <code>out_num_points</code> is set right away. The rest of initialization is handled in the <code>fpd_init</code> function.</p>
+          <p>To get started, we must initialize those data structures. We've initially generated zero points, so <code>out_num_points</code> is set right away. The rest of initialization is handled in the <code>fpd_init</code> function.</p>
           <details><summary>code</summary><div class="tabs">
             <input type="radio" id="init-c" name="tab-group-init" checked>
             <label for="init-c">C</label>
           <pre><code class="language-c">int fast_poisson_disk(...) {
+    *out_num_points = 0;
+
     /* early out: if asked for nothing, do nothing */
     if (buf_size &lt; 1) {
         return 1;
     }
-    
-    *out_num_points = 0;
 
     FpdState fpd = {0};
     if (!fpd_init(
@@ -457,7 +459,7 @@ typedef struct FpdState {
     }
 ...</code></pre></div></details>
           <h4>Initialize the grid</h4>
-          <p>If we can guarantee that we won't need more than one point in a grid cell, then each cell of the grid can be just a single pointer to the contained point or <code>NULL</code>. We can guarantee this by setting the diagonal of each cell to the minimum distance between points, so that wherever in a cell the point is, the whole cell is within that distance. The side length of such a cell is equal to that distance divided by the square root of the number of dimensions. From that, we can calculate the number of rows and columns and allocate the space for our grid.</p>
+          <p>If we can guarantee that we won't need more than one point in a grid cell, then each cell of the grid can be just a single pointer to the contained point or <code>NULL</code>. We can guarantee this by choosing a cell size that makes the diagonal of each cell equal to the minimum distance between points. That way, two points can never fit inside the same cell.. The side length of such a cell is equal to that distance divided by the square root of the number of dimensions. From that, we can calculate the number of rows and columns and allocate the space for our grid.</p>
           <details><summary>code</summary><div class="tabs">
             <input type="radio" id="init-grid-c" name="tab-group-init-grid" checked>
             <label for="init-grid-c">C</label>
@@ -475,7 +477,7 @@ typedef struct FpdState {
     }
     ...</code></pre></div></details>
           <h4>Initialize the list</h4>
-          <p>To keep things simple, I am allocating the maximum amount of space that the active list could need all at once up front. In practice, sometimes you won't generate that many points, and even if you do, they won't usually all be active at once, so there may be benefits to starting smaller and only increasing the buffer size as needed. For this example, I am allocating based on the worst case: either the output buffer size or the number of grid squares, whichever is smaller. The initial length of the list is zero.</p>
+          <p>To keep things simple, I am allocating the maximum amount of space that the active list could need all at once up front. In practice, sometimes you won't generate that many points, and even if you do, they won't usually all be active at once, so there may be benefits to starting smaller and only increasing the buffer size as needed. For this example implementation, I am allocating based on a worst case of either the size of the output buffer or the number of grid squares, whichever is smaller. The list begins with a length of zero.</p>
           <details><summary>code</summary><div class="tabs">
             <input type="radio" id="init-list-c" name="tab-group-init-list" checked>
             <label for="init-list-c">C</label>
@@ -496,7 +498,7 @@ typedef struct FpdState {
               <figcaption>An initial point.</figcaption>
             </figure>
           </div>
-          <p>The first step is to insert one seed point from which the rest of them will eventually be generated. There's no special reason for it to be in any particular place, so this code just chooses it uniformly in the available region. A couple of supporting functions appear in this snippet as well: the <code>fpd_randrange</code> function chooses a value uniformly in the provided range and <code>fpd_insert</code> updates bookkeeping for a newly accepted point.</p>
+          <p>The first step is to insert one seed point from which the rest of them will eventually be generated. This code just chooses a random point in the available region. A couple of supporting functions appear in this snippet as well: the <code>fpd_randrange</code> function chooses a value uniformly in the provided range and <code>fpd_insert</code> updates bookkeeping for a newly accepted point.</p>
           <details><summary>code</summary><div class="tabs">
             <input type="radio" id="first-sample-c" name="tab-group-first-sample" checked>
             <label for="first-sample-c">C</label>
@@ -523,15 +525,11 @@ static int fpd_insert(FpdState *fpd, Pt p) {
         return 0;
     }
 
-    /* write coord data */
-    Pt *dst = &amp;(fpd-&gt;buf[fpd-&gt;count]);
-    *dst = p;
-
     /* insert into grid*/
     size_t row = (size_t)floor(p.y / fpd-&gt;cell_size);
     size_t col = (size_t)floor(p.x / fpd-&gt;cell_size);
     size_t index = row * fpd-&gt;num_cols + col;
-    if ((index &gt; fpd-&gt;num_cols * fpd-&gt;num_rows) ||
+    if ((index &gt;= fpd-&gt;num_cols * fpd-&gt;num_rows) ||
         (NULL != fpd-&gt;grid[index])
     ) {
         return 0;
@@ -541,6 +539,10 @@ static int fpd_insert(FpdState *fpd, Pt p) {
     /* insert into active list */
     fpd-&gt;active_list[fpd-&gt;list_len++] = &amp;(fpd-&gt;buf[fpd-&gt;count]);
 
+    /* write coord data */
+    Pt *dst = &amp;(fpd-&gt;buf[fpd-&gt;count]);
+    *dst = p;
+
     /* advance */
     fpd-&gt;count++;
     return 1;
@@ -549,7 +551,7 @@ static int fpd_insert(FpdState *fpd, Pt p) {
           <p>Then, for as long as we still have points in the active list and the output buffer has room, we do the following. If there are no more active points, we'll jump to step 3 to finish up.</p>
           <h4>2.1 Choose an active point</h4>
           <p>Choose a point from the active list. Bridson chose one at random, but my results seem fine just taking the most recent one. It simplifies removing it later if we know it is the last.</p>
-          <p>Using the active list here helps us choose new candidate points only in regions that are more likely to have room for new points, when compared to other techniques like Mitchell's best candidate or dart throwing.</p>
+          <p>The active list allows us to focus on points that may still have room around them. Points are removed from the list once repeated attempts around them fail.</p>
           <details><summary>code</summary><div class="tabs">
             <input type="radio" id="step-two-one-c" name="tab-group-step-two-one" checked>
             <label for="step-two-one-c">C</label>
@@ -558,14 +560,16 @@ static int fpd_insert(FpdState *fpd, Pt p) {
     Pt cur = *(fpd-&gt;active_list[fpd-&gt;list_len - 1]);
     ...</code></pre></div></details>
           <h4>2.2 Test new points in an annulus surrounding that point</h4>
+          <p>An annulus is the doughnut-shaped region bounded by two concentric circles.</p>
           <div class="threecolumns">
             <figure>
               <img src="step2.2.svg" alt="Choosing a candidate point based on an active point."/>
             <figcaption>Choosing a candidate point based on an active point.</figcaption>
             </figure></div>
-          <p>Tracking the number of times we attempt this in a row, generate a candidate point, chosen uniformly from within an annulus centered on the chosen active point with radii <code>min_dist</code> and <code>2 * min_dist</code>.</p>
-          <p>Choosing a candidate minimum distance away makes sure we don't have to immediately reject it for being too close to the chosen active point. Varying the distance and angle prevents us from generating patterns with too much regularity.</p>
-          <p>There is some nuance here to make sure that we don't bias the inner part of the annulus. The simplest way to choose a point in the annulus is to choose an angle uniformly between zero and two pi and a radius uniformly between <code>min_dist</code> and <code>2 * min_dist</code>.  Notice, though, that the inner part of the annulus has a smaller circumference than the outer, but will be chosen just as often on average, meaning the inner parts of the annulus will be a bit over-represented. To choose a point in an unbiased way, we need the probability of choosing a radius to be proportional to that radius, not uniform. The math works out that we can do that by choosing the <em>square</em> of the radius uniformly. We can then take the square root of that to get a radius, that chooses points uniformly in the annulus. That said, the naive approach usually produces acceptable results, too.</p>
+          <p>Tracking the number of attempts, choose a candidate point uniformly (by area) from at least <code>min_dist</code> away and at most <code>2 * min_dist</code> away.</p>
+          <p>By choosing a candidate that is a minimum distance away, we ensure we won't immediately reject it for being too close to the chosen active point. Varying the distance and angle prevents us from generating patterns with too much regularity.</p>
+          <p>There is some nuance here to make sure that we don't choose the candidates with a bias toward the active point.
+The simplest way to choose the candidate would be to take an angle uniformly between zero and two pi and a radius uniformly between <code>min_dist</code> and <code>2 * min_dist</code>, but it turns out that favors the inner part of the annulus. Every radius is selected equally often on average, but larger radii make for larger circles. We need a radius's probability to be proportional to that radius. The math for that works out to be that if we choose the <em>square</em> of the radius uniformly between <code>min_dist*min_dist</code> and <code>4*min_dist*min_dist</code>, we can then take the square root of that to get a correctly weighted radius choice for sampling the annulus uniformly. That said, the naive, biased approach way produces acceptable results, too.</p>
           <details><summary>code</summary><div class="tabs">
             <input type="radio" id="step-two-two-c" name="tab-group-step-two-two" checked>
             <label for="step-two-two-c">C</label>
@@ -581,7 +585,7 @@ static int fpd_insert(FpdState *fpd, Pt p) {
    centered on `p`, with an inner radius equal to the 
    minimum radius and an outer radius twice the minimum radius. */
 static Pt fpd_random_from_annulus(const Pt p, const float min_r_sq) {
-    float TAU = 2.f * 3.14159265358979323846;
+    const float TAU = 2.f * 3.14159265358979323846;
     float a = fpd_randrange(0, TAU);
     float r_sq = fpd_randrange(min_r_sq, 4.f * min_r_sq);
     float r = sqrtf(r_sq);
@@ -591,7 +595,7 @@ static Pt fpd_random_from_annulus(const Pt p, const float min_r_sq) {
     };
 }</code></pre></div></details>
           <h4>2.3 Distance test</h4>
-          <p>We then must either accept the candidate point or reject it. To do this quickly, we can first find which row and column of our grid it would fall into, by simply dividing the coordinates by our cell size. If the row or column is outside of the grid, we can reject the point before we even consider previous points. If it wasn't rejected, we look at what points we placed in nearby grid cells. Based on our chosen cell size, any previously accepted point that is within the minimum distance of the candidate would then have to be in a grid cell within 2 grid cells of the one the candidate would go into, at least in two dimensions. Since each grid cell can have at most one accepted point, we have a constant upper bound on the number of points we could have to test per candidate.</p>
+          <p>We then either accept the candidate point or reject it. To do this quickly, we can first find which row and column of our grid it would fall into by simply dividing the coordinates by our cell size. If the row or column is outside of the grid, we can reject the point before we even consider previous points. Otherwise, we look at what points we placed in nearby grid cells. Based on our chosen cell size, any previously accepted point within the minimum distance of the candidate would have to be in a grid cell within 2 grid cells of the one the candidate would go into, at least in this two dimensional case. Since each grid cell can have at most one accepted point, we have a constant upper bound on the number of distance tests we could have to make per candidate.</p>
           <details><summary>code</summary><div class="tabs">
             <input type="radio" id="step-two-three-c" name="tab-group-step-two-three" checked>
             <label for="step-two-three-c">C</label>
@@ -600,10 +604,10 @@ static int fpd_distance_check(const FpdState *fpd, const Pt p) {
     const float min_dist_sq = fpd-&gt;min_dist_sq;
     const size_t candidate_row = (size_t)floor(p.y / fpd-&gt;cell_size);
     const size_t candidate_col = (size_t)floor(p.x / fpd-&gt;cell_size);
-    const size_t min_row = (size_t) fpd_max(1, candidate_row) - 1;
+    const size_t min_row = (size_t) fpd_max(2, candidate_row) - 2;
     const size_t max_row = (size_t) fpd_min(candidate_row + 2, fpd-&gt;num_rows - 1);
-    const size_t min_col = (size_t) fpd_max(1, candidate_col) - 1;
-    const size_t max_col = (size_t) fpd_min(candidate_col + 1, fpd-&gt;num_cols - 1);
+    const size_t min_col = (size_t) fpd_max(2, candidate_col) - 2;
+    const size_t max_col = (size_t) fpd_min(candidate_col + 2, fpd-&gt;num_cols - 1);
     for (size_t row=min_row;row&lt;=max_row;++row) {
         for (size_t col=min_col;col&lt;=max_col;++col) {
             const size_t index = row * fpd-&gt;num_cols + col;
@@ -628,7 +632,7 @@ static int fpd_distance_check(const FpdState *fpd, const Pt p) {
               </figure>
             </div>
           <h4>2.4 Accept the candidate?</h4>
-          <p>If it is in the region and far enough from previous samples, <code>fpd_insert</code> it! Then, return to step 2.1. If it wasn't accepted, continue to step 2.5.</p>
+          <p>If it is within the region and far enough from previous samples, <code>fpd_insert</code> it! Then, return to step 2.1. If it wasn't accepted, continue to step 2.5.</p>
           <details><summary>code</summary><div class="tabs">
             <input type="radio" id="step-two-four-c" name="tab-group-step-two-four" checked>
             <label for="step-two-four-c">C</label>
@@ -651,7 +655,7 @@ static int fpd_distance_check(const FpdState *fpd, const Pt p) {
             <figcaption>Inserting a new point after distance tests.</figcaption>
             </figure></div>
           <h4>2.5 Reject the candidate?</h4>
-          <p>If we reach this step, we know we need to reject the candidate. It may also be time to stop using this active point. If there haven't yet been <code>max_tries</code> rejected candidates in a row, go back to step 2.2 and try a new candidate from the same annulus, but if there have been, remove the chosen active point from the active list and go back to step 2.1.</p>
+          <p>If we reach this step, we know we need to reject the candidate. It may also be time to stop using this active point. If fewer than <code>max_tries</code> candidates have been rejected in a row, go back to step 2.2 and try a new candidate from the same annulus, otherwise, remove the chosen active point from the active list and go back to step 2.1.</p>
           <details><summary>code</summary><div class="tabs">
             <input type="radio" id="step-two-six-c" name="tab-group-step-two-six" checked>
             <label for="step-two-six-c">C</label>
@@ -672,7 +676,7 @@ static int fpd_distance_check(const FpdState *fpd, const Pt p) {
                   <figcaption>Removing points after failed attempts.</figcaption>
                   </figure></div>
           <h3><a id="step-three-clean-up"></a>Step 3. Clean Up</h3>
-          <p>Once the buffer is full or there are no more active points, release memory and report the final count.</p>
+          <p>Once the buffer is full or there are no more active points, release the allocated memory and report the final count.</p>
           <details><summary>code</summary><div class="tabs">
             <input type="radio" id="step-two-c" name="tab-group-step-two" checked>
             <label for="step-two-c">C</label>
@@ -697,7 +701,7 @@ int fast_poisson_disk(...) {
     return 1;
 }
 
-/* free resources allocated by the FpdState. But not the FpdState itself. That&#39;s on the stack. */
+/* free resources allocated for the FpdState. But not the FpdState itself. That&#39;s on the stack. */
 static int fpd_cleanup(FpdState *fpd) {
     if (NULL == fpd) {
         return 0;
@@ -712,15 +716,16 @@ static int fpd_cleanup(FpdState *fpd) {
     }
     return 1;
 }</code></pre></div></details>
-                <div class="threecolumns">
-                  <figure>
-                    <img src="fpd_process.svg" alt="Animation of the full fast Poisson disk process."/>
-                    <figcaption>Animation of the full fast Poisson disk process.</figcaption>
-                  </figure></div>
+          <div class="threecolumns">
+            <figure>
+              <img src="fpd_process.svg" alt="Animation of the full fast Poisson disk process."/>
+              <figcaption>Animation of the full fast Poisson disk process.</figcaption>
+            </figure>
+          </div>
         </section>
         <section>
           <h2><a id="source-code"></a>Source Code</h2>
-          <p>The source code for the fast Poisson disk implementation and the scripts used to generate the animations are available on INSERT PLACE at <a href="INSERT LINK">INSERT LINK</a>.</p>
+          <p>The source code of the example implementation is available at <a href="https://codeberg.org/ExciteMike/fast_poisson_disk/src/branch/main/fast_poisson_disk.c">https://codeberg.org/ExciteMike/fast_poisson_disk/src/branch/main/fast_poisson_disk.c</a>.</p>
         </section>
         <section class="references">
           <h2>References</h2>
